@@ -114,12 +114,20 @@ namespace AFrameWork.GameUI
         /// </summary>
         public StyleSheet HealthBarUss => m_healthBarUss;
 
+        /// <summary>
+        /// 场景中的单例引用（Awake 时缓存，OnDestroy 时清除）
+        /// 避免 Fighter/Monster 调用 FindObjectOfType 遍历整个场景
+        /// </summary>
+        public static HealthBarController Instance { get; private set; }
+
         // ══════════════════════════════════════════════════════════════════════════
         // MonoBehaviour 方法
         // ══════════════════════════════════════════════════════════════════════════
 
         private void Awake()
         {
+            Instance = this;
+
             // 初始化 UIDocument 引用
             m_uiDocument = GetComponent<UIDocument>();
 
@@ -180,6 +188,8 @@ namespace AFrameWork.GameUI
 
         private void OnDestroy()
         {
+            if (Instance == this) Instance = null;
+
             // 清理所有血条
             ClearAllHealthBars();
 

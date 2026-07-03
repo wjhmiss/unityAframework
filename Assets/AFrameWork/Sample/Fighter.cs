@@ -67,6 +67,10 @@ namespace AFrameWork.Sample
         // 当前是否正在受击（受击动画播放期间禁止其他输入）
         private bool m_isHurting = false;
 
+        // ===== 每帧缓存的输入值 (避免重复调用 Input.GetAxisRaw) =====
+        private float m_cachedHorizontal;
+        private float m_cachedVertical;
+
         // ===== 动画配置：待机、奔跑、攻击 统一使用 AnimationConfig =====
 
         // 待机动画配置（循环播放，无帧事件）
@@ -416,8 +420,8 @@ namespace AFrameWork.Sample
             Debug.Log($"[{GetType().Name}] 开始初始化血条系统...");
 #endif
 
-            // 查找场景中的血条控制器（通常是场景中的全局管理器）
-            m_healthBarController = FindObjectOfType<HealthBarController>();
+            // 获取场景中的血条控制器（使用静态缓存，避免 FindObjectOfType 遍历场景）
+            m_healthBarController = HealthBarController.Instance;
 
             if (m_healthBarController == null)
             {
@@ -463,6 +467,10 @@ namespace AFrameWork.Sample
             // 调用父类 Update，确保输入处理、帧事件检查（触发 OnAnimationFrameEvent / OnAnimationComplete）等逻辑正常执行
             base.Update();
 
+            // 缓存移动输入（供 TryStartRoll 复用，避免重复调用 Input.GetAxisRaw）
+            m_cachedHorizontal = Input.GetAxisRaw("Horizontal");
+            m_cachedVertical = Input.GetAxisRaw("Vertical");
+
             // 动画未加载完成时跳过动画切换逻辑
             if (m_idleConfig.Clip == null || m_runConfig.Clip == null)
             {
@@ -505,7 +513,7 @@ namespace AFrameWork.Sample
             if (m_isAttacking)
             {
                 SetMovementInput(Vector3.zero);
-                m_rigidbody.velocity = new Vector3(0f, m_rigidbody.velocity.y, 0f);
+                ZeroHorizontalVelocity();
                 return;
             }
 
@@ -544,9 +552,12 @@ namespace AFrameWork.Sample
             }
 
             // 移动时朝向移动方向（平滑旋转）
+            // 复用已计算的 speedSqr 做 normalized，避免 .normalized 内部重复 sqrMagnitude + Sqrt
             if (m_isMoving)
             {
-                Quaternion targetRotation = Quaternion.LookRotation(horizontalVelocity.normalized);
+                float speed = Mathf.Sqrt(speedSqr);
+                Vector3 moveDir = horizontalVelocity / speed;
+                Quaternion targetRotation = Quaternion.LookRotation(moveDir);
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, targetRotation, k_rotationSpeed * Time.deltaTime);
             }
@@ -597,10 +608,8 @@ namespace AFrameWork.Sample
             // 优先使用当前移动输入方向（玩家正在按方向键时朝该方向翻滚）
             // 无输入时使用角色当前朝向（向前翻滚）
             Vector3 forward = transform.forward;
-            // 读取移动输入（与 HandleInput 相同逻辑，但无需角度偏移——翻滚方向是世界空间）
-            float horizontal = Input.GetAxisRaw("Horizontal");
-            float vertical = Input.GetAxisRaw("Vertical");
-            Vector3 inputDir = new Vector3(horizontal, 0f, vertical);
+            // 复用 Update 中缓存的输入值，避免重复调用 Input.GetAxisRaw
+            Vector3 inputDir = new Vector3(m_cachedHorizontal, 0f, m_cachedVertical);
             m_rollDirection = inputDir.sqrMagnitude > 0.01f
                 ? inputDir.normalized
                 : new Vector3(forward.x, 0f, forward.z).normalized;
@@ -660,13 +669,22 @@ namespace AFrameWork.Sample
             // 不主动 ClearInvulnerable()，避免提前结束较长的无敌窗口
 
             // 立即停止水平移动（避免翻滚结束后滑行）
-            m_rigidbody.velocity = new Vector3(0f, m_rigidbody.velocity.y, 0f);
+            ZeroHorizontalVelocity();
 
             // 恢复待机动画
             if (m_idleConfig.Clip != null)
             {
                 PlayAnimation(m_idleConfig, loop: true);
             }
+        }
+
+        /// <summary>
+        /// 清零水平速度，保留 Y 轴速度（重力/下落）。
+        /// 用于攻击/翻滚结束/受击时停止水平位移。
+        /// </summary>
+        private void ZeroHorizontalVelocity()
+        {
+            m_rigidbody.velocity = new Vector3(0f, m_rigidbody.velocity.y, 0f);
         }
 
         /// <summary>
@@ -711,14 +729,12 @@ namespace AFrameWork.Sample
             // 基类处理：重置攻击状态、清除帧事件、调用 OnAttackEnded
             base.OnAnimationComplete();
 
-            // 攻击动画结束后恢复待机动画
+            // 攻击/受击/翻滚是互斥状态，使用 else if 跳过后续判断
             if (wasAttacking && m_idleConfig.Clip != null)
             {
                 PlayAnimation(m_idleConfig, loop: true);
             }
-
-            // 受击动画结束后清除受击状态，恢复待机
-            if (wasHurting)
+            else if (wasHurting)
             {
                 m_isHurting = false;
                 if (m_idleConfig.Clip != null)
@@ -726,10 +742,7 @@ namespace AFrameWork.Sample
                     PlayAnimation(m_idleConfig, loop: true);
                 }
             }
-
-            // 翻滚动画结束后调用 EndRoll 恢复待机
-            // 若 HandleRollMovement 已通过时长检测先调用 EndRoll，此处 m_isRolling 已为 false，跳过
-            if (wasRolling && m_isRolling)
+            else if (wasRolling && m_isRolling)
             {
                 EndRoll();
             }

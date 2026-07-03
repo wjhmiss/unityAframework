@@ -11,8 +11,10 @@ namespace AFrameWork.GameUI
     /// </summary>
     public class HealthBar : MonoBehaviour
     {
-        // ══════════════════════════════════════════════════════════════════════════
-        // 常量定义
+        /// <summary>
+        /// 遮挡检测共享的 RaycastHit 缓冲区（避免每帧 GC 分配）
+        /// </summary>
+        private static readonly RaycastHit[] s_occlusionHits = new RaycastHit[16];
         // ══════════════════════════════════════════════════════════════════════════
 
         /// <summary>
@@ -129,6 +131,16 @@ namespace AFrameWork.GameUI
         /// </summary>
         private bool m_isOccluded;
 
+        /// <summary>
+        /// 目标自身的碰撞体数组（遮挡检测时排除）
+        /// </summary>
+        private Collider[] m_targetColliders;
+
+        /// <summary>
+        /// 遮挡检测中自动跳过的 Tag 列表（地面、可穿透平台等不应算作遮挡物）
+        /// </summary>
+        private static readonly string[] k_nonOccludingTags = { "floor", "Floor" };
+
         // ══════════════════════════════════════════════════════════════════════════
         // 属性
         // ══════════════════════════════════════════════════════════════════════════
@@ -216,6 +228,9 @@ namespace AFrameWork.GameUI
             m_targetTransform = target;
             m_headOffset = headOffset;
             m_healthBarController = controller;
+
+            // 缓存目标自身的碰撞体，遮挡检测时排除
+            m_targetColliders = target.GetComponentsInChildren<Collider>();
 
             // 初始化 UI 元素（如果还没有初始化）
             InitializeUIElements();
@@ -560,7 +575,6 @@ namespace AFrameWork.GameUI
             Vector3 worldPosition = m_targetTransform.position + Vector3.up * m_headOffset;
 
             // 遮挡检测：从相机到目标头部位置发射射线，检测中间是否有遮挡物
-            // 使用头部位置而非脚部位置，避免射线命中目标自身的 Collider
             if (m_config.EnableOcclusionCheck)
             {
                 UpdateOcclusion(m_camera.transform.position, worldPosition);
@@ -640,8 +654,8 @@ namespace AFrameWork.GameUI
         }
 
         /// <summary>
-        /// 遮挡检测：从相机向目标方向发射射线，最大距离略短于实际距离，
-        /// 避免命中目标自身的 Collider
+        /// 遮挡检测：从相机向目标方向发射射线，排除目标自身的 Collider。
+        /// 使用 RaycastAll + 显式排除，彻底避免命中自身碰撞体。
         /// </summary>
         private void UpdateOcclusion(Vector3 cameraPos, Vector3 targetPos)
         {
@@ -652,13 +666,55 @@ namespace AFrameWork.GameUI
 
             Vector3 direction = targetPos - cameraPos;
             float distance = direction.magnitude;
+            if (distance < 0.01f) return;
 
-            // 最大距离缩短 0.5m，避免命中目标自身碰撞体
-            float maxDistance = Mathf.Max(distance - 0.5f, 0.1f);
+            Vector3 dir = direction / distance;  // 归一化（复用已计算的 distance）
 
             int mask = m_config.OcclusionLayerMask == 0 ? ~0 : m_config.OcclusionLayerMask;
             bool wasOccluded = m_isOccluded;
-            m_isOccluded = Physics.Raycast(cameraPos, direction.normalized, out var hit, maxDistance, mask);
+
+            // RaycastAll 获取路径上所有命中点，排除目标自身碰撞体后判断是否有遮挡
+            int hitCount = Physics.RaycastNonAlloc(
+                cameraPos, dir, s_occlusionHits, distance, mask,
+                QueryTriggerInteraction.Ignore);
+
+            bool foundOccluder = false;
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider hitCollider = s_occlusionHits[i].collider;
+
+                // 跳过目标自身的碰撞体
+                if (m_targetColliders != null)
+                {
+                    bool isOwnCollider = false;
+                    for (int j = 0; j < m_targetColliders.Length; j++)
+                    {
+                        if (m_targetColliders[j] == hitCollider)
+                        {
+                            isOwnCollider = true;
+                            break;
+                        }
+                    }
+                    if (isOwnCollider) continue;
+                }
+
+                // 跳过地面等非遮挡物（角色站立面不应算作遮挡）
+                bool isNonOccluder = false;
+                for (int j = 0; j < k_nonOccludingTags.Length; j++)
+                {
+                    if (hitCollider.CompareTag(k_nonOccludingTags[j]))
+                    {
+                        isNonOccluder = true;
+                        break;
+                    }
+                }
+                if (isNonOccluder) continue;
+
+                foundOccluder = true;
+                break;
+            }
+
+            m_isOccluded = foundOccluder;
 
             // 状态变化时才更新 opacity（避免每帧重复赋值）
             if (m_isOccluded != wasOccluded)
