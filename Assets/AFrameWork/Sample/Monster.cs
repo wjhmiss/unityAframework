@@ -1,56 +1,134 @@
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.AI;
 using AFrameWork.Core;
 using AFrameWork.GameUI;
 
 namespace AFrameWork.Sample
 {
     /// <summary>
-    /// 怪物类，演示如何创建一个基础的怪物物体
-    /// 继承自 ObjectBase，使用 SetupComponents + AddObjectComponent 动态添加组件
-    /// 集成血条系统，实时显示怪物血量变化
+    /// 怪物类，继承 ObjectBase，集成骨骼动画、NavMeshAgent 追击、GPU 血条。
+    /// 移动方式参考 Enemy：NavMeshAgent.SetDestination 驱动位置，ObjectBase 移动锁定。
+    /// 动画系统参考 Fighter：AnimationConfig 统一管理，Addressables 异步加载。
     /// </summary>
     public class Monster : ObjectBase
     {
+        #region Addressables 资源键常量
+
+        private const string k_avatarKey = "NPC01_Avatar";
+
+        #endregion
+
+        #region 动画配置
+
+        // 待机动画（循环）
+        private static readonly AnimationConfig k_idle = new AnimationConfig
+        {
+            ClipKey = "NPC01_IDEL"
+        };
+
+        // 移动动画（循环）
+        private static readonly AnimationConfig k_walk = new AnimationConfig
+        {
+            ClipKey = "NPC01_WALK"
+        };
+
+        // 攻击动画（不循环）
+        private static readonly AnimationConfig k_attack = new AnimationConfig
+        {
+            ClipKey = "NPC01_ATTACK",
+            Multiplier = new ObjectStatsConfigMultiplier(baseDamageMultiplier: 1.0f)
+        };
+
+        // 受击动画（不循环）
+        private static readonly AnimationConfig k_hurt = new AnimationConfig
+        {
+            ClipKey = "NPC01_HURT"
+        };
+
+        // 死亡动画（不循环）
+        private static readonly AnimationConfig k_dead = new AnimationConfig
+        {
+            ClipKey = "NPC01_DEAD"
+        };
+
+        // 实例配置（运行时通过 LoadAnimationConfigAssetsAsync 填充 Clip）
+        private AnimationConfig m_idleConfig = k_idle;
+        private AnimationConfig m_walkConfig = k_walk;
+        private AnimationConfig m_hurtConfig = k_hurt;
+        private AnimationConfig m_deadConfig = k_dead;
+
+        #endregion
+
+        #region AI 状态机
+
+        private enum MonsterState
+        {
+            Idle,
+            Chase,
+            Attack,
+            Hurt,
+            Dead
+        }
+
+        private MonsterState m_state = MonsterState.Idle;
+        private Transform m_target;
+        private float m_stateTimer;
+
+        // 受击状态标志（受击动画期间禁止其他输入）
+        private bool m_isHurting;
+
+        // 攻击许可标志（false 时停止所有攻击行为）
+        [Tooltip("攻击许可：true 可以攻击，false 禁止所有攻击行为")]
+        [SerializeField]
+        private bool m_canAttack = true;
+
+        /// <summary>
+        /// 攻击许可属性：true 可以攻击，false 禁止所有攻击行为
+        /// 外部可通过 monster.CanAttack = false 禁止怪物攻击
+        /// </summary>
+        public bool CanAttack
+        {
+            get => m_canAttack;
+            set => m_canAttack = value;
+        }
+
+        #endregion
+
+        #region NavMeshAgent
+
+        private NavMeshAgent m_navMeshAgent;
+
+        // NavMeshAgent 启用开关（Inspector 可配置）
+        [Tooltip("NavMeshAgent 启用：true 使用 NavMeshAgent 追击，false 禁用 NavMeshAgent 由 ObjectBase 移动系统控制")]
+        [SerializeField]
+        private bool m_useNavMeshAgent = false;
+
+        #endregion
+
         #region 血条系统字段
 
-        /// <summary>
-        /// GPU 实例化血条管理器引用（场景中的全局管理器）
-        /// </summary>
         private HealthBarGPUInstanced m_gpuHealthBarManager;
-
-        /// <summary>
-        /// GPU 血条实例 ID（由 Register 返回，用于后续更新/注销）
-        /// </summary>
         private int m_gpuHealthBarId = -1;
 
-        /// <summary>
-        /// 血条头部偏移（根据怪物模型高度调整）
-        /// </summary>
         [Tooltip("血条距离怪物头顶的垂直偏移（世界坐标）")]
         [SerializeField]
         private float m_healthBarHeadOffset = 3.0f;
 
         #endregion
+
         #region 配置属性
 
-        /// <summary>
-        /// 移动配置属性，控制移动行为
-        /// 注意：移动速度由 ObjectStatsConfig.MoveSpeed 提供
-        /// </summary>
         protected override MovementConfig MovementConfig => new MovementConfig(
             keepYVelocity: true,
-            autoReadInput: false,     // 怪物通常不自动读取玩家输入
-            decelerationRate: 5f     // 怪物有中等惯性，停止时稍微滑行
+            autoReadInput: false,
+            decelerationRate: 50f
         );
 
-        /// <summary>
-        /// 物体属性配置，包含怪物所有数值属性
-        /// </summary>
         protected override ObjectStatsConfig ObjectStatsConfig => new ObjectStatsConfig
         {
-            // 基础属性
             Type = ObjectType.Tank,
-            FactionID = 2,               // 敌人阵营
+            FactionID = 11,  // 怪物阵营 (k_monsterFactionMinID=11, k_monsterFactionMaxID=50)
             MaxHealth = 100f,
             CurrentHealth = 100f,
             PhysicalAttack = 15f,
@@ -58,25 +136,15 @@ namespace AFrameWork.Sample
             TrueDamage = 3f,
             MagicAttack = 5f,
             MagicDefense = 8f,
-
-            // 速度属性
-            MoveSpeed = 4f,              // 怪物移动速度较慢
+            MoveSpeed = 4f,
             AttackSpeed = 1.0f,
             CastSpeed = 1.0f,
-
-            // 暴击属性
             CriticalRate = 0.1f,
             CriticalDamageMultiplier = 2.0f,
-
-            // 穿透属性
             ArmorPenetration = 0.1f,
             MagicPenetration = 0.05f,
-
-            // 恢复属性
             HealthRegeneration = 1f,
             ManaRegeneration = 1f,
-
-            // 特殊属性
             MaxMana = 50f,
             CurrentMana = 50f,
             CooldownReduction = 0.05f,
@@ -93,174 +161,392 @@ namespace AFrameWork.Sample
 
         #region 初始化方法
 
-        /// <summary>
-        /// 重写 SetupComponents，使用 AddObjectComponent 动态添加组件
-        /// 直接传入组件类型和初始化回调，无需额外的配置类
-        /// </summary>
         protected override void SetupComponents()
         {
             base.SetupComponents();
 
-            // 添加 Rigidbody 并配置参数
+            // 初始化攻击配置数组
+            m_animationConfigs = new AnimationConfig[] { k_attack };
+            CloneFrameEvents(ref m_idleConfig);
+            CloneFrameEvents(ref m_walkConfig);
+            CloneFrameEvents(ref m_hurtConfig);
+            CloneFrameEvents(ref m_deadConfig);
+            for (int i = 0; i < m_animationConfigs.Length; i++)
+            {
+                CloneFrameEvents(ref m_animationConfigs[i]);
+            }
+
+            // Rigidbody 设为 kinematic — NavMeshAgent 驱动位置，避免物理冲突
             m_rigidbody = AddObjectComponent<Rigidbody>(rb =>
             {
-                rb.mass = 1f;
-                rb.drag = 0f;
-                rb.angularDrag = 0.05f;
-                rb.useGravity = true;
+                rb.isKinematic = true;
+                rb.useGravity = false;
                 rb.constraints = RigidbodyConstraints.FreezeRotationX
                     | RigidbodyConstraints.FreezeRotationZ;
             });
 
-            // 添加 CapsuleCollider，根据对象包围盒设置大小
-            // sizeMultiplier: XYZ 轴分别缩放，怪物碰撞体 XZ 稍大便于命中
-            AddCapsuleCollider(CalculateObjectBounds(), new Vector3(0.4f, 1.2f, 0.4f), new Vector3(0f, 0f, 0f));
+            // CapsuleCollider — 硬编码尺寸，避免 Awake 时 CalculateObjectBounds 返回空包围盒
+            AddObjectComponent<CapsuleCollider>(cc =>
+            {
+                cc.radius = 0.5f;
+                cc.height = 2f;
+                cc.center = new Vector3(0f, 1f, 0f);
+                cc.isTrigger = false;
+            });
+
+            // NavMeshAgent — 参考 Enemy 模式，基于导航网格的AI追击系统
+            // 设计原则：参数来源统一（从ObjectStatsConfig获取）、物理尺寸一致（与CapsuleCollider匹配）、追击流畅（高转向速度+自动刹车）
+            if (m_useNavMeshAgent)
+            {
+                m_navMeshAgent = AddObjectComponent<NavMeshAgent>(agent =>
+                {
+                    // 移动速度（米/秒）：从配置获取，便于统一管理怪物速度属性
+                    // 当前值=4f，与VisionRange(10f)配合确保追击速度合理
+                    agent.speed = ObjectStatsConfig.MoveSpeed;
+
+                    // 转向速度（度/秒）：720度/秒意味着2秒内可完成360度转向
+                    // 高转向速度确保怪物能快速调整方向追击移动中的玩家
+                    agent.angularSpeed = 720f;
+
+                    // 加速度（米/秒²）：40f是较高的加速度，确保从静止快速进入追击状态
+                    // 与Enemy.cs保持一致，EnterIdle→EnterChase切换时能快速加速到最大速度
+                    agent.acceleration = 40f;
+
+                    // 停止距离（米）：AttackRange*0.8f = 2f*0.8f = 1.6米
+                    // 0.8倍攻击距离确保停止后仍处于攻击范围内，防止过于接近玩家导致物理碰撞重叠
+                    // Update检测距离时使用 sqrDist<=attackRange²，配合停止距离实现流畅追击→攻击切换
+                    agent.stoppingDistance = ObjectStatsConfig.AttackRange * 0.8f;
+
+                    // 避障半径（米）：0.4f小于CapsuleCollider的radius(0.5f)
+                    // 避免导航网格碰撞体大于实际碰撞体，确保能穿过稍窄通道（门框、走廊）
+                    // 多个Monster追击时，避障系统根据此值计算彼此避让距离
+                    agent.radius = 0.4f;
+
+                    // 导航高度（米）：与CapsuleCollider高度一致(height=2f)
+                    // 确保无法通过低于2米的障碍物（矮墙、管道），NavMesh烘焙时自动生成适合此高度的路径
+                    agent.height = 2f;
+
+                    // 自动刹车：true确保接近目标点时平滑减速而非急停
+                    // 配合stoppingDistance=1.6f实现自然停止过渡，防止位置抖动
+                    // EnterIdle时调用isStopped=true，autoBraking确保停止过程平滑
+                    agent.autoBraking = true;
+
+                    // 避障优先级（0-99，数值越小优先级越高）：50为中等优先级，适合普通怪物群体
+                    // 高优先级怪物（数值小）会优先避让低优先级怪物
+                    // 如有Boss级怪物可设置更小优先级(如10)确保不被阻挡
+                    // 多个Monster同时追击时，避障系统根据此值计算彼此避让路径避免碰撞拥堵
+                    agent.avoidancePriority = 50;
+                });
+
+                // 锁定 ObjectBase 移动 — 由 NavMeshAgent 全权控制位置
+                m_isMovementLocked = true;
+            }
         }
 
-        /// <summary>
-        /// Unity Start 方法，在组件初始化完成后创建血条
-        /// 注意：ObjectBase 的 Awake 已经完成组件初始化，血条创建需要在 Start 中进行
-        /// </summary>
-        protected virtual void Start()
+        private async void Start()
         {
-            // 初始化血条系统
+            // 异步加载骨骼并初始化 Animator
+            await SetupAnimatorAsync(k_avatarKey);
+            if (this == null) return;
+
+            // 并行加载所有动画
+            Task<AnimationConfig> idleTask = LoadAnimationConfigAssetsAsync(m_idleConfig);
+            Task<AnimationConfig> walkTask = LoadAnimationConfigAssetsAsync(m_walkConfig);
+            Task<AnimationConfig> hurtTask = LoadAnimationConfigAssetsAsync(m_hurtConfig);
+            Task<AnimationConfig> deadTask = LoadAnimationConfigAssetsAsync(m_deadConfig);
+            Task loadAttacksTask = LoadAnimationClipsAsync();
+
+            await Task.WhenAll(idleTask, walkTask, hurtTask, deadTask);
+            await loadAttacksTask;
+
+            if (this == null) return;
+
+            m_idleConfig = idleTask.Result;
+            m_walkConfig = walkTask.Result;
+            m_hurtConfig = hurtTask.Result;
+            m_deadConfig = deadTask.Result;
+
+            // 播放待机动画
+            if (m_idleConfig.Clip != null)
+            {
+                PlayAnimation(m_idleConfig, loop: true);
+            }
+
+            // 查找玩家目标
+            var fighter = FindObjectOfType<Fighter>();
+            if (fighter != null)
+            {
+                m_target = fighter.transform;
+            }
+
+            // 初始化血条
             InitializeHealthBar();
         }
 
-        /// <summary>
-        /// 初始化血条系统
-        /// 查找场景中的 HealthBarGPUInstanced 并注册 GPU 血条
-        /// </summary>
         private void InitializeHealthBar()
         {
-#if UNITY_EDITOR
-            Debug.Log($"[{GetType().Name}] 开始初始化 GPU 血条系统...");
-#endif
-
-            // 查找场景中的 GPU 血条管理器
             m_gpuHealthBarManager = FindObjectOfType<HealthBarGPUInstanced>();
+            if (m_gpuHealthBarManager == null) return;
 
-            if (m_gpuHealthBarManager == null)
-            {
-#if UNITY_EDITOR
-                Debug.LogWarning($"[{GetType().Name}] 场景中未找到 HealthBarGPUInstanced，血条系统未启用！", this);
-                Debug.LogWarning($"[{GetType().Name}] 解决方案：在 Hierarchy 中创建 GameObject 并添加 HealthBarGPUInstanced 组件", this);
-#endif
-                return;
-            }
-
-            // 注册 GPU 血条
             m_gpuHealthBarId = m_gpuHealthBarManager.Register(transform, m_healthBarHeadOffset);
-
-            if (m_gpuHealthBarId < 0)
+            if (m_gpuHealthBarId >= 0)
             {
-#if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] GPU 血条注册失败！", this);
-#endif
-                return;
+                m_gpuHealthBarManager.UpdateHealth(m_gpuHealthBarId, GetCurrentHealth(), GetMaxHealth());
             }
-
-            // 初始化血量显示
-            m_gpuHealthBarManager.UpdateHealth(m_gpuHealthBarId, GetCurrentHealth(), GetMaxHealth());
-
-#if UNITY_EDITOR
-            Debug.Log($"[{GetType().Name}] GPU 血条已注册，ID: {m_gpuHealthBarId}，当前血量: {GetCurrentHealth()}/{GetMaxHealth()}", this);
-#endif
         }
 
         #endregion
 
-        #region 物体属性回调方法（重写父类的所有回调）
+        #region Update — AI 状态机
 
-        // 注意：所有回调中的 Debug.Log 均包裹在 #if UNITY_EDITOR 中
-        // MMO 场景下战斗频繁，字符串插值会产生 GC 压力，生产构建中需要完全剥离
+        protected override void Update()
+        {
+            base.Update();
+
+            if (m_state == MonsterState.Dead) return;
+            if (m_isHurting) return;
+
+            // 正在攻击时检查攻击许可，被取消时立即中断攻击
+            if (m_isAttacking)
+            {
+                if (!m_canAttack)
+                {
+                    // 立即中断攻击
+                    m_isAttacking = false;
+                    m_comboIndex = 0;
+                    if (m_idleConfig.Clip != null)
+                    {
+                        PlayAnimation(m_idleConfig, loop: true);
+                    }
+                    EnterIdle();
+                }
+                return;
+            }
+
+            // 动画未加载完成
+            if (m_idleConfig.Clip == null) return;
+
+            // 目标已死亡 → 停止追击/攻击，回到待机
+            if (m_target != null && m_target.TryGetComponent<ObjectBase>(out var targetObj) && targetObj.IsDead())
+            {
+                EnterIdle();
+                return;
+            }
+
+            // 无目标 → 待机
+            if (m_target == null)
+            {
+                if (m_state != MonsterState.Idle)
+                {
+                    EnterIdle();
+                }
+                return;
+            }
+
+            float sqrDist = (m_target.position - transform.position).sqrMagnitude;
+            float attackRange = ObjectStatsConfig.AttackRange;
+            float visionRange = ObjectStatsConfig.VisionRange;
+
+            if (sqrDist <= attackRange * attackRange && m_canAttack)
+            {
+                // 在攻击范围内 + 攻击许可 → 攻击
+                if (m_state != MonsterState.Attack)
+                {
+                    EnterAttack();
+                }
+            }
+            else if (sqrDist <= visionRange * visionRange)
+            {
+                // 在视野范围内 → 追击
+                if (m_state != MonsterState.Chase)
+                {
+                    EnterChase();
+                }
+
+                // 持续更新追击目标
+                if (m_navMeshAgent != null && m_navMeshAgent.isOnNavMesh)
+                {
+                    m_navMeshAgent.SetDestination(m_target.position);
+                }
+            }
+            else
+            {
+                // 超出视野 → 待机
+                if (m_state != MonsterState.Idle)
+                {
+                    EnterIdle();
+                }
+            }
+        }
+
+        private void EnterIdle()
+        {
+            m_state = MonsterState.Idle;
+            if (m_navMeshAgent != null && m_navMeshAgent.isOnNavMesh)
+            {
+                m_navMeshAgent.isStopped = true;
+            }
+            if (m_idleConfig.Clip != null)
+            {
+                PlayAnimation(m_idleConfig, loop: true);
+            }
+        }
+
+        private void EnterChase()
+        {
+            m_state = MonsterState.Chase;
+            if (m_navMeshAgent != null && m_navMeshAgent.isOnNavMesh)
+            {
+                m_navMeshAgent.isStopped = false;
+            }
+            if (m_walkConfig.Clip != null)
+            {
+                PlayAnimation(m_walkConfig, loop: true);
+            }
+        }
+
+        private void EnterAttack()
+        {
+            // 攻击许可检查
+            if (!m_canAttack)
+            {
+                EnterIdle();
+                return;
+            }
+
+            m_state = MonsterState.Attack;
+            if (m_navMeshAgent != null && m_navMeshAgent.isOnNavMesh)
+            {
+                m_navMeshAgent.isStopped = true;
+            }
+
+            // 朝向目标
+            if (m_target != null)
+            {
+                Vector3 lookPos = m_target.position;
+                lookPos.y = transform.position.y;
+                transform.rotation = Quaternion.LookRotation(lookPos - transform.position);
+            }
+
+            TryStartAttack();
+        }
+
+        #endregion
+
+        #region 动画回调
 
         /// <summary>
-        /// 受到伤害时的回调
-        /// 更新血条显示，血量变化会触发平滑过渡动画
+        /// 攻击开始回调：直接对目标造成伤害。
+        /// Monster 没有武器碰撞体，采用直接伤害模式（参考 Enemy.cs）。
         /// </summary>
+        protected override void OnAttackStarted(AnimationConfig config)
+        {
+            if (m_target == null) return;
+
+            // 距离校验 — 攻击动画播放期间目标可能移动超出范围
+            float sqrDist = (m_target.position - transform.position).sqrMagnitude;
+            float maxRange = ObjectStatsConfig.AttackRange * 1.5f;
+            if (sqrDist > maxRange * maxRange) return;
+
+            // 获取目标 ObjectBase 并造成伤害
+            if (m_target.TryGetComponent<ObjectBase>(out ObjectBase target))
+            {
+                float damage = ObjectStatsConfig.PhysicalAttack;
+                target.TakeDamage(damage);
+
+#if UNITY_EDITOR
+                // Debug.Log($"[{GetType().Name}] 攻击 {target.name}，造成 {damage} 点伤害", this);
+#endif
+            }
+        }
+
+        /// <summary>
+        /// 动画剪辑内置的 AnimationEvent 接收器。
+        /// </summary>
+        private void AttackVFX()
+        {
+        }
+
+        protected override void OnAnimationComplete()
+        {
+            bool wasAttacking = m_isAttacking;
+            bool wasHurting = m_isHurting;
+
+            base.OnAnimationComplete();
+
+            if (wasHurting)
+            {
+                m_isHurting = false;
+                // 受击结束后恢复待机（Update 会自动切换到 Chase/Attack）
+                EnterIdle();
+            }
+            else if (wasAttacking)
+            {
+                // 攻击结束后恢复待机（Update 会自动切换到 Chase/Attack）
+                EnterIdle();
+            }
+        }
+
+        #endregion
+
+        #region 物体属性回调方法
+
         protected override void OnDamaged(float damage)
         {
-#if UNITY_EDITOR
-            Debug.Log($"怪物受到 {damage} 点伤害！当前生命值：{GetCurrentHealth()}/{GetMaxHealth()}");
-#endif
-
-            // 更新 GPU 血条显示
+            // 更新 GPU 血条
             if (m_gpuHealthBarId >= 0 && m_gpuHealthBarManager != null)
             {
                 m_gpuHealthBarManager.UpdateHealth(m_gpuHealthBarId, GetCurrentHealth(), GetMaxHealth());
             }
+
+            if (IsDead()) return;
+            if (m_hurtConfig.Clip == null) return;
+
+            // 打断攻击
+            if (m_isAttacking)
+            {
+                m_isAttacking = false;
+                m_comboIndex = 0;
+            }
+
+            // 停止 NavMeshAgent
+            if (m_navMeshAgent != null && m_navMeshAgent.isOnNavMesh)
+            {
+                m_navMeshAgent.isStopped = true;
+            }
+
+            m_isHurting = true;
+            m_state = MonsterState.Hurt;
+            PlayAnimation(m_hurtConfig, loop: false);
         }
 
-        /// <summary>
-        /// 恢复生命值时的回调
-        /// 更新血条显示，血量变化会触发平滑过渡动画
-        /// </summary>
         protected override void OnHealed(float amount)
         {
-#if UNITY_EDITOR
-            Debug.Log($"怪物恢复 {amount} 点生命值！当前生命值：{GetCurrentHealth()}/{GetMaxHealth()}");
-#endif
-
-            // 更新 GPU 血条显示
             if (m_gpuHealthBarId >= 0 && m_gpuHealthBarManager != null)
             {
                 m_gpuHealthBarManager.UpdateHealth(m_gpuHealthBarId, GetCurrentHealth(), GetMaxHealth());
             }
         }
 
-        /// <summary>
-        /// 消耗魔法值时的回调
-        /// </summary>
-        protected override void OnManaConsumed(float amount)
-        {
-#if UNITY_EDITOR
-            Debug.Log($"怪物消耗 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
-#endif
-        }
-
-        /// <summary>
-        /// 恢复魔法值时的回调
-        /// </summary>
-        protected override void OnManaRestored(float amount)
-        {
-#if UNITY_EDITOR
-            Debug.Log($"怪物恢复 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
-#endif
-        }
-
-        /// <summary>
-        /// 增加经验值时的回调
-        /// </summary>
-        protected override void OnExperienceAdded(float amount)
-        {
-#if UNITY_EDITOR
-            Debug.Log($"怪物获得 {amount} 点经验值！当前经验值：{GetObjectStats().Experience}");
-#endif
-        }
-
-        /// <summary>
-        /// 增加金币时的回调
-        /// </summary>
-        protected override void OnGoldAdded(int amount)
-        {
-#if UNITY_EDITOR
-            Debug.Log($"怪物获得 {amount} 金币！当前金币：{GetGold()}");
-#endif
-        }
-
-        /// <summary>
-        /// 物体死亡时的回调
-        /// 停止移动并移除血条
-        /// </summary>
         protected override void OnDeath()
         {
-#if UNITY_EDITOR
-            Debug.Log("怪物死亡！");
-#endif
+            m_state = MonsterState.Dead;
+            m_isAttacking = false;
+            m_isHurting = false;
+            m_isMovementLocked = false;
 
-            // 停止移动，防止死亡后继续滑行
-            StopMovement();
+            // 停止 NavMeshAgent
+            if (m_navMeshAgent != null)
+            {
+                m_navMeshAgent.isStopped = true;
+                m_navMeshAgent.enabled = false;
+            }
+
+            // 播放死亡动画
+            if (m_deadConfig.Clip != null)
+            {
+                PlayAnimation(m_deadConfig, loop: false);
+            }
 
             // 注销 GPU 血条
             if (m_gpuHealthBarId >= 0 && m_gpuHealthBarManager != null)
@@ -268,178 +554,16 @@ namespace AFrameWork.Sample
                 m_gpuHealthBarManager.Unregister(m_gpuHealthBarId);
                 m_gpuHealthBarId = -1;
             }
+
+            StopMovement();
         }
 
-        /// <summary>
-        /// 重置属性时的回调
-        /// </summary>
-        protected override void OnStatsReset()
-        {
-#if UNITY_EDITOR
-            Debug.Log("怪物属性已重置！");
-#endif
-        }
+        protected override void OnManaConsumed(float amount) { }
+        protected override void OnManaRestored(float amount) { }
+        protected override void OnExperienceAdded(float amount) { }
+        protected override void OnGoldAdded(int amount) { }
+        protected override void OnStatsReset() { }
 
         #endregion
     }
-
-    /// <summary>
-    /// Monster 使用说明：
-    /// ============================================================
-    /// 怪物类，继承 ObjectBase，演示基础的怪物物体实现。
-    /// 包含：动态组件创建、属性配置、回调方法、移动系统。
-    /// 作为 MMO 项目中怪物物体的最小可运行模板，AI 逻辑可在此基础上扩展。
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【与 ObjectBase 的关系】
-    /// ════════════════════════════════════════════════════════════
-    ///   - Monster 继承 ObjectBase，复用父类的所有基础能力
-    ///   - 未重写 AnimationConfig 相关字段（未启用动画系统），可按需扩展
-    ///   - 未重写帧事件和攻击连击系统，AI 攻击逻辑需自行实现
-    ///   - 重写所有生命周期回调方法（OnDamaged/OnHealed/OnDeath 等）以响应战斗事件
-    ///   - 父类自动处理：组件管理、移动控制、属性系统、阵营判定
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【移动系统】
-    /// ════════════════════════════════════════════════════════════
-    ///   - 不自动读取玩家输入（autoReadInput: false，怪物由 AI 控制移动）
-    ///     AI 通过 SetMovementInput(Vector3) 主动注入移动方向
-    ///   - 移动速度由 ObjectStatsConfig.MoveSpeed 提供（4f）
-    ///     MovementConfig 不包含 speed 参数，遵循父类设计规范
-    ///   - 减速速率 5f（中等惯性，停止时有轻微滑行，模拟生物运动惯性）
-    ///   - 保留 Y 轴速度（keepYVelocity: true，支持跳跃/击退等垂直运动）
-    ///
-    ///   性能优化（由父类 ObjectBase 自动处理，子类无感知）：
-    ///     - MovementConfig 在 Awake 时缓存（m_movementConfig），避免每帧 new 产生 GC
-    ///     - 减速计算复用 currentSpeed（m_horizontalVelocity * (newSpeed/currentSpeed)），
-    ///       避免 .normalized 的重复 Mathf.Sqrt
-    ///     - 移动方向偏移旋转在 Awake 预计算（m_movementAngleRotation），
-    ///       使用 m_hasMovementAngleOffset 标志进行分支无关检查
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【初始化流程】
-    /// ════════════════════════════════════════════════════════════
-    ///   1. Awake → SetupComponents()：
-    ///      - base.SetupComponents()：父类添加默认组件
-    ///      - 添加 Rigidbody（mass=1, drag=0, useGravity=true, 冻结 X/Z 旋转）
-    ///        FreezeRotationX|FreezeRotationZ 防止怪物被外力翻倒
-    ///      - 添加 CapsuleCollider（自动计算包围盒，使用静态缓冲区零分配）
-    ///        sizeMultiplier: (0.4, 1.2, 0.4) — XZ 稍大便于玩家命中
-    ///        centerOffset: (-0.30, -0.45, -0.10) — 调整碰撞体中心至角色躯干
-    ///   2. 父类 Awake 中预缓存 MovementConfig 和移动方向偏移旋转
-    ///
-    ///   注意：CapsuleCollider 的 centerOffset 是针对特定模型调整的，
-    ///        实际项目中应根据怪物模型重新计算包围盒和偏移
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【属性配置】
-    /// ════════════════════════════════════════════════════════════
-    ///   通过 ObjectStatsConfig 配置怪物属性：
-    ///     基础属性：
-    ///       Type = ObjectType.Tank（坦克型怪物，高生命高防御）
-    ///       FactionID = 2（敌人阵营，与玩家阵营 1 敌对）
-    ///       MaxHealth = CurrentHealth = 100f
-    ///       PhysicalAttack = 15f（物理攻击力）
-    ///       PhysicalDefense = 10f（物理防御）
-    ///       TrueDamage = 3f（真实伤害，无视防御）
-    ///       MagicAttack = 5f, MagicDefense = 8f
-    ///     速度属性：
-    ///       MoveSpeed = 4f（较慢，玩家 6f 可轻松绕背）
-    ///       AttackSpeed = 1.0f, CastSpeed = 1.0f
-    ///     暴击属性：
-    ///       CriticalRate = 0.1f（10% 暴击率）
-    ///       CriticalDamageMultiplier = 2.0f（200% 暴击伤害）
-    ///     穿透属性：
-    ///       ArmorPenetration = 0.1f（10% 护甲穿透）
-    ///       MagicPenetration = 0.05f（5% 魔法穿透）
-    ///     恢复属性：
-    ///       HealthRegeneration = 1f, ManaRegeneration = 1f
-    ///     特殊属性：
-    ///       MaxMana = CurrentMana = 50f
-    ///       CooldownReduction = 0.05f, EvasionRate = 0.03f, HitRate = 0.9f
-    ///       AttackRange = 2f, VisionRange = 10f（视野范围，用于 AI 仇恨判定）
-    ///       Experience = 0f, Level = 1, Gold = 0
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【回调方法】
-    /// ════════════════════════════════════════════════════════════
-    ///   重写 ObjectBase 的所有回调方法，当前仅输出日志（包裹 #if UNITY_EDITOR）：
-    ///     OnDamaged(float damage)      —— 受到伤害时触发，可在此播放受击动画/音效
-    ///     OnHealed(float amount)       —— 恢复生命值时触发，可在此播放治疗特效
-    ///     OnManaConsumed(float amount) —— 消耗魔法值时触发
-    ///     OnManaRestored(float amount) —— 恢复魔法值时触发
-    ///     OnExperienceAdded(float amount) —— 获得经验时触发（怪物一般不用，保留扩展性）
-    ///     OnGoldAdded(int amount)      —— 获得金币时触发（怪物一般不用，保留扩展性）
-    ///     OnDeath()                    —— 死亡时触发，调用 StopMovement() 停止移动
-    ///     OnStatsReset()               —— 属性重置时触发
-    ///
-    ///   OnDeath 中的特殊处理：
-    ///     - 调用 StopMovement() 停止移动，防止死亡后继续滑行
-    ///     - 实际项目应在此播放死亡动画、掉落物品、给予玩家经验/金币
-    ///
-    ///   性能优化：
-    ///     - 所有回调中的 Debug.Log 包裹 #if UNITY_EDITOR，生产构建中完全剥离
-    ///     - MMO 场景下怪物数量多、战斗频繁，避免字符串插值（$"..."）的 GC 分配
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【与 Fighter 的对比】
-    /// ════════════════════════════════════════════════════════════
-    ///   维度          | Fighter（玩家）         | Monster（怪物）
-    ///   ──────────────┼─────────────────────────┼────────────────────────
-    ///   输入控制      | autoReadInput=true      | autoReadInput=false
-    ///                 | 自动读取 WASD 输入       | 由 AI 调用 SetMovementInput
-    ///   移动速度      | 6f                      | 4f（较慢，玩家可绕背）
-    ///   减速速率      | 50f（立即停止）         | 5f（有滑行惯性）
-    ///   移动角度偏移  | -45°（斜视角补偿）      | 0°（无偏移）
-    ///   攻击系统      | 3 段连击 + 帧事件        | 未启用（需 AI 扩展）
-    ///   动画系统      | AnimationConfig 完整配置 | 未启用
-    ///   武器系统      | Sword 子对象            | 无
-    ///   属性类型      | Warrior（战士）         | Tank（坦克，高生命高防御）
-    ///   阵营          | 1（玩家阵营）           | 2（敌人阵营）
-    ///   生命值        | 150                     | 100
-    ///   视野范围      | 12f                     | 10f
-    ///   死亡处理      | （未演示）              | StopMovement()
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【AI 扩展指导】
-    /// ════════════════════════════════════════════════════════════
-    ///   Monster 当前是基础模板，AI 逻辑需自行实现。推荐扩展方向：
-    ///
-    ///   1. 状态机 AI（推荐）：
-    ///      - 在 Update 中实现简单 FSM：Patrol → Chase → Attack → Flee → Dead
-    ///      - Patrol：随机巡逻或路径点巡逻，调用 SetMovementInput
-    ///      - Chase：检测玩家进入 VisionRange，朝玩家移动
-    ///      - Attack：距离 ≤ AttackRange 时调用 TryStartAttack（需配置 AnimationConfig）
-    ///      - Flee：生命值低于阈值时远离玩家
-    ///      - Dead：OnDeath 回调中切换状态，播放死亡动画后销毁
-    ///
-    ///   2. 启用攻击系统：
-    ///      - 在 SetupComponents 中初始化 m_animationConfigs 数组
-    ///      - 配置攻击动画的 AnimationConfig（参考 Fighter.cs）
-    ///      - AI 在 Attack 状态下调用 TryStartAttack() 触发连击
-    ///      - 配合帧事件系统实现伤害判定（参考 Sword.cs）
-    ///
-    ///   3. 仇恨系统：
-    ///      - 维护 Dictionary&lt;ObjectBase, float&gt; 记忆每个目标的仇恨值
-    ///      - OnDamaged 回调中增加攻击者仇恨值
-    ///      - AI 选择仇恨最高的目标作为 Chase/Attack 对象
-    ///
-    ///   4. 出生/掉落：
-    ///      - OnDeath 中通过 Addressables 加载掉落物预制体
-    ///      - 调用 ExperienceAdded/OnGoldAdded 给予玩家奖励（需引用玩家 ObjectBase）
-    ///
-    ///   5. 配置驱动：
-    ///      - 将硬编码属性提取为 ScriptableObject（如 MonsterDataSO）
-    ///      - 不同怪物类型（哥布林、巨魔、龙）共享同一 Monster 类，仅配置不同
-    ///
-    /// ════════════════════════════════════════════════════════════
-    /// 【MMO 场景下的性能注意事项】
-    /// ════════════════════════════════════════════════════════════
-    ///   - 怪物数量大（数百到数千），每帧 Update 必须保持轻量
-    ///   - 推荐使用对象池管理怪物 GameObject，避免运行时 Instantiate/Destroy
-    ///   - 远离玩家的怪物可降低 Update 频率（LOD AI）或休眠
-    ///   - OnDamaged 中的日志必须包裹 #if UNITY_EDITOR，避免 GC 压力
-    ///   - 仇恨字典应预分配容量，避免运行时扩容
-    ///   - 视野检测使用 sqrMagnitude 而非 Vector3.Distance
-    /// </summary>
 }

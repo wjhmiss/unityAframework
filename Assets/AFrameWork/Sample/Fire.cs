@@ -85,7 +85,7 @@ namespace AFrameWork.Sample
             });
 
 #if UNITY_EDITOR
-            Debug.Log($"火球初始化完成，伤害范围：{damageRadius} 米");
+            // Debug.Log($"火球初始化完成，伤害范围：{damageRadius} 米");
 #endif
         }
 
@@ -140,7 +140,7 @@ namespace AFrameWork.Sample
             }
 
 #if UNITY_EDITOR
-            Debug.Log($"物体 {target.name} 进入火球范围，首次伤害已应用");
+            // Debug.Log($"物体 {target.name} 进入火球范围，首次伤害已应用");
 #endif
         }
 
@@ -184,7 +184,7 @@ namespace AFrameWork.Sample
             m_damageTimers.Remove(target);
 
 #if UNITY_EDITOR
-            Debug.Log($"物体 {target.name} 离开火球范围");
+            // Debug.Log($"物体 {target.name} 离开火球范围");
 #endif
         }
 
@@ -220,7 +220,7 @@ namespace AFrameWork.Sample
             target.TakeDamage(actualDamage);
 
 #if UNITY_EDITOR
-            Debug.Log($"火球对 {target.name} 造成 {actualDamage} 点魔法伤害");
+            // Debug.Log($"火球对 {target.name} 造成 {actualDamage} 点魔法伤害");
 #endif
         }
 
@@ -267,7 +267,7 @@ namespace AFrameWork.Sample
 
             m_isDestroyed = true;
 #if UNITY_EDITOR
-            Debug.Log("火球持续时间结束，自动销毁");
+            // Debug.Log("火球持续时间结束，自动销毁");
 #endif
             Destroy(gameObject);
         }

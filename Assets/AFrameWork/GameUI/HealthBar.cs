@@ -431,7 +431,7 @@ namespace AFrameWork.GameUI
             if (m_uiDocument == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] UIDocument component is null!", this);
+                // Debug.LogError($"[{GetType().Name}] UIDocument component is null!", this);
 #endif
                 return;
             }
@@ -440,7 +440,7 @@ namespace AFrameWork.GameUI
             if (root == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] UIDocument.rootVisualElement is null!", this);
+                // Debug.LogError($"[{GetType().Name}] UIDocument.rootVisualElement is null!", this);
 #endif
                 return;
             }
@@ -455,8 +455,8 @@ namespace AFrameWork.GameUI
             if (uxmlTemplate == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] HealthBar UXML template is null! Cannot create health bar element.", this);
-                Debug.LogError($"[{GetType().Name}] Solution: Configure 'Health Bar Uxml' in HealthBarController Inspector.", this);
+                // Debug.LogError($"[{GetType().Name}] HealthBar UXML template is null! Cannot create health bar element.", this);
+                // Debug.LogError($"[{GetType().Name}] Solution: Configure 'Health Bar Uxml' in HealthBarController Inspector.", this);
 #endif
                 return;
             }
@@ -467,7 +467,7 @@ namespace AFrameWork.GameUI
             if (templateContainer == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] Failed to instantiate health bar from UXML template!", this);
+                // Debug.LogError($"[{GetType().Name}] Failed to instantiate health bar from UXML template!", this);
 #endif
                 return;
             }
@@ -497,7 +497,7 @@ namespace AFrameWork.GameUI
             root.Add(m_healthBarElement);
 
 #if UNITY_EDITOR
-            Debug.Log($"[{GetType().Name}] Health bar element created and added to UIDocument.rootVisualElement");
+            // Debug.Log($"[{GetType().Name}] Health bar element created and added to UIDocument.rootVisualElement");
 #endif
 
             // 查询子元素引用
@@ -508,7 +508,7 @@ namespace AFrameWork.GameUI
             if (m_fillElement == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] Failed to find fill element!", this);
+                // Debug.LogError($"[{GetType().Name}] Failed to find fill element!", this);
 #endif
                 return;
             }
@@ -516,7 +516,7 @@ namespace AFrameWork.GameUI
             m_isInitialized = true;
 
 #if UNITY_EDITOR
-            Debug.Log($"[{GetType().Name}] UI elements initialized successfully");
+            // Debug.Log($"[{GetType().Name}] UI elements initialized successfully");
 #endif
 
             // 应用初始配置

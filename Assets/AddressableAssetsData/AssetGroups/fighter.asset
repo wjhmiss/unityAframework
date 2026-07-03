@@ -67,6 +67,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8ba7ba2f9e5563345a7fc8bbb17892eb
+    m_Address: player_Dead
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 956cf616103c1fc49a2ff0db68114726
     m_Address: NPC01_HURT
     m_ReadOnly: 0

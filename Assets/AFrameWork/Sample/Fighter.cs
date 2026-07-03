@@ -170,9 +170,16 @@ namespace AFrameWork.Sample
             ClipKey = "player_Roll"
         };
 
-        // 受击和翻滚的实例配置（运行时通过 LoadAnimationConfigAssetsAsync 填充 Clip）
+        // 死亡动画配置（不循环，无帧事件）
+        private static readonly AnimationConfig k_dead = new AnimationConfig
+        {
+            ClipKey = "player_Dead"
+        };
+
+        // 受击、翻滚、死亡的实例配置（运行时通过 LoadAnimationConfigAssetsAsync 填充 Clip）
         private AnimationConfig m_hurtConfig = k_hurt;
         private AnimationConfig m_rollConfig = k_roll;
+        private AnimationConfig m_deadConfig = k_dead;
 
         #endregion
 
@@ -218,8 +225,8 @@ namespace AFrameWork.Sample
             // 基础属性
             Type = ObjectType.Warrior,
             FactionID = 1,               // 玩家阵营
-            MaxHealth = 150f,
-            CurrentHealth = 150f,
+            MaxHealth = 100f,
+            CurrentHealth = 100f,
             PhysicalAttack = 25f,
             PhysicalDefense = 15f,
             TrueDamage = 5f,
@@ -276,6 +283,7 @@ namespace AFrameWork.Sample
             CloneFrameEvents(ref m_runConfig);
             CloneFrameEvents(ref m_hurtConfig);
             CloneFrameEvents(ref m_rollConfig);
+            CloneFrameEvents(ref m_deadConfig);
             for (int i = 0; i < m_animationConfigs.Length; i++)
             {
                 CloneFrameEvents(ref m_animationConfigs[i]);
@@ -292,7 +300,9 @@ namespace AFrameWork.Sample
                     | RigidbodyConstraints.FreezeRotationZ;
                 rb.freezeRotation = true;
             });
+            Debug.Log($"fighter m_rigidbody {m_rigidbody.isKinematic}", this);
 
+            // CapsuleCollider — 硬编码尺寸，避免 Awake 时 CalculateObjectBounds 返回空包围盒
             // 添加 CapsuleCollider，new Vector3(-1f, 1f, 2f));  // 向左移动1，向上移动1`向前移动2，
             AddCapsuleCollider(CalculateObjectBounds(), new Vector3(0.4f, 1.2f, 0.4f), new Vector3(0f, 0f, 0f));
 
@@ -362,12 +372,13 @@ namespace AFrameWork.Sample
             Task<AnimationConfig> runTask = LoadAnimationConfigAssetsAsync(m_runConfig);
             Task<AnimationConfig> hurtTask = LoadAnimationConfigAssetsAsync(m_hurtConfig);
             Task<AnimationConfig> rollTask = LoadAnimationConfigAssetsAsync(m_rollConfig);
+            Task<AnimationConfig> deadTask = LoadAnimationConfigAssetsAsync(m_deadConfig);
             Task loadAttacksTask = LoadAnimationClipsAsync();
             // 加载挥剑音效（用于 k_attack03 的 PlayAudioClip 帧事件）
             Task<AudioClip> swingSoundTask = LoadAssetAsync<AudioClip>(k_swingSoundKey);
 
             // 等待所有加载完成
-            await Task.WhenAll(idleTask, runTask, hurtTask, rollTask);
+            await Task.WhenAll(idleTask, runTask, hurtTask, rollTask, deadTask);
             await loadAttacksTask;
             await swingSoundTask;
 
@@ -382,6 +393,7 @@ namespace AFrameWork.Sample
             m_runConfig = runTask.Result;
             m_hurtConfig = hurtTask.Result;
             m_rollConfig = rollTask.Result;
+            m_deadConfig = deadTask.Result;
 
             // 将挥剑音效赋值到 k_attack03（m_animationConfigs[2]）的 PlayAudioClip 帧事件
             AudioClip swingSound = swingSoundTask.Result;
@@ -417,7 +429,7 @@ namespace AFrameWork.Sample
         private void InitializeHealthBar()
         {
 #if UNITY_EDITOR
-            Debug.Log($"[{GetType().Name}] 开始初始化血条系统...");
+            // Debug.Log($"[{GetType().Name}] 开始初始化血条系统...");
 #endif
 
             // 获取场景中的血条控制器（使用静态缓存，避免 FindObjectOfType 遍历场景）
@@ -426,20 +438,20 @@ namespace AFrameWork.Sample
             if (m_healthBarController == null)
             {
 #if UNITY_EDITOR
-                Debug.LogWarning($"[{GetType().Name}] 场景中未找到 HealthBarController，血条系统未启用！", this);
-                Debug.LogWarning($"[{GetType().Name}] 解决方案：在 Hierarchy 中创建 HealthBarController 对象并添加 HealthBarController 组件", this);
+                // Debug.LogWarning($"[{GetType().Name}] 场景中未找到 HealthBarController，血条系统未启用！", this);
+                // Debug.LogWarning($"[{GetType().Name}] 解决方案：在 Hierarchy 中创建 HealthBarController 对象并添加 HealthBarController 组件", this);
 #endif
                 return;
             }
 
             // 使用大型血条配置（适合玩家角色，含文本显示）
             m_healthBar = m_healthBarController.CreateHealthBar(
-                transform, HealthBarConfig.CreateLarge(), m_healthBarHeadOffset);
+                transform, HealthBarConfig.CreateCompact(), m_healthBarHeadOffset);
 
             if (m_healthBar == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] 血条创建失败！请检查 HealthBarController 的 UXML/USS 资源配置", this);
+                // Debug.LogError($"[{GetType().Name}] 血条创建失败！请检查 HealthBarController 的 UXML/USS 资源配置", this);
 #endif
                 return;
             }
@@ -451,7 +463,7 @@ namespace AFrameWork.Sample
             m_healthBar.Show();
 
 #if UNITY_EDITOR
-            Debug.Log($"[{GetType().Name}] 血条已初始化并显示，当前血量: {GetCurrentHealth()}/{GetMaxHealth()}", this);
+            // Debug.Log($"[{GetType().Name}] 血条已初始化并显示，当前血量: {GetCurrentHealth()}/{GetMaxHealth()}", this);
 #endif
         }
 
@@ -466,6 +478,13 @@ namespace AFrameWork.Sample
         {
             // 调用父类 Update，确保输入处理、帧事件检查（触发 OnAnimationFrameEvent / OnAnimationComplete）等逻辑正常执行
             base.Update();
+
+            // 死亡后禁止一切输入和移动
+            if (IsDead())
+            {
+                SetMovementInput(Vector3.zero);
+                return;
+            }
 
             // 缓存移动输入（供 TryStartRoll 复用，避免重复调用 Input.GetAxisRaw）
             m_cachedHorizontal = Input.GetAxisRaw("Horizontal");
@@ -761,7 +780,7 @@ namespace AFrameWork.Sample
                 case "HitImpact":
                     // 命中冲击：可在此触发震屏、顿帧、命中特效等
 #if UNITY_EDITOR
-                    Debug.Log($"[{nameof(Fighter)}] HitImpact 自定义帧事件触发", this);
+                    // Debug.Log($"[{nameof(Fighter)}] HitImpact 自定义帧事件触发", this);
 #endif
                     break;
             }
@@ -783,7 +802,7 @@ namespace AFrameWork.Sample
         protected override void OnDamaged(float damage)
         {
 #if UNITY_EDITOR
-            Debug.Log($"战士受到 {damage} 点伤害！当前生命值：{GetCurrentHealth()}/{GetMaxHealth()}");
+            // Debug.Log($"战士受到 {damage} 点伤害！当前生命值：{GetCurrentHealth()}/{GetMaxHealth()}");
 #endif
 
             // 更新血条显示（带平滑过渡动画）
@@ -840,7 +859,7 @@ namespace AFrameWork.Sample
         protected override void OnHealed(float amount)
         {
 #if UNITY_EDITOR
-            Debug.Log($"战士恢复 {amount} 点生命值！当前生命值：{GetCurrentHealth()}/{GetMaxHealth()}");
+            // Debug.Log($"战士恢复 {amount} 点生命值！当前生命值：{GetCurrentHealth()}/{GetMaxHealth()}");
 #endif
 
             // 更新血条显示
@@ -856,7 +875,7 @@ namespace AFrameWork.Sample
         protected override void OnManaConsumed(float amount)
         {
 #if UNITY_EDITOR
-            Debug.Log($"战士消耗 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
+            // Debug.Log($"战士消耗 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
 #endif
         }
 
@@ -866,7 +885,7 @@ namespace AFrameWork.Sample
         protected override void OnManaRestored(float amount)
         {
 #if UNITY_EDITOR
-            Debug.Log($"战士恢复 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
+            // Debug.Log($"战士恢复 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
 #endif
         }
 
@@ -876,7 +895,7 @@ namespace AFrameWork.Sample
         protected override void OnExperienceAdded(float amount)
         {
 #if UNITY_EDITOR
-            Debug.Log($"战士获得 {amount} 点经验值！当前经验值：{GetObjectStats().Experience}");
+            // Debug.Log($"战士获得 {amount} 点经验值！当前经验值：{GetObjectStats().Experience}");
 #endif
         }
 
@@ -886,7 +905,7 @@ namespace AFrameWork.Sample
         protected override void OnGoldAdded(int amount)
         {
 #if UNITY_EDITOR
-            Debug.Log($"战士获得 {amount} 金币！当前金币：{GetGold()}");
+            // Debug.Log($"战士获得 {amount} 金币！当前金币：{GetGold()}");
 #endif
         }
 
@@ -897,7 +916,7 @@ namespace AFrameWork.Sample
         protected override void OnDeath()
         {
 #if UNITY_EDITOR
-            Debug.Log("战士死亡！");
+            // Debug.Log("战士死亡！");
 #endif
 
             // 清理战斗状态标志，防止 Update 继续执行位移/输入逻辑
@@ -928,6 +947,12 @@ namespace AFrameWork.Sample
                 m_healthBar = null;
             }
 
+            // 播放死亡动画
+            if (m_deadConfig.Clip != null)
+            {
+                PlayAnimation(m_deadConfig, loop: false);
+            }
+
             StopMovement();
         }
 
@@ -937,7 +962,7 @@ namespace AFrameWork.Sample
         protected override void OnStatsReset()
         {
 #if UNITY_EDITOR
-            Debug.Log("战士属性已重置！");
+            // Debug.Log("战士属性已重置！");
 #endif
         }
 

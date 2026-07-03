@@ -80,9 +80,21 @@ namespace AFrameWork.Sample
         {
             base.SetupComponents();
 
+
             // 添加 BoxCollider，根据对象包围盒设置大小
             // sizeMultiplier: 剑通常较长，Y 轴放大，XZ 轴缩小
-            AddBoxCollider(CalculateObjectBounds(), new Vector3(0.3f, 1.0f, 0.15f), Vector3.zero);
+            AddBoxCollider(CalculateObjectBounds(), new Vector3(1f, 3.0f, 1f), Vector3.zero);
+
+
+            // Rigidbody — kinematic，仅用于触发检测
+            // Unity 规则：kinematic Rigidbody 才能与 kinematic Rigidbody 触发 OnTriggerEnter
+            // 如果无 Rigidbody，Monster（kinematic）的触发事件不会发送到 Sword
+            // AddObjectComponent<Rigidbody>(rb =>
+            // {
+            //     rb.isKinematic = true;       // 不参与物理模拟，仅用于触发检测
+            //     rb.useGravity = false;       // 武器不需要重力（由骨骼动画驱动位置）
+            //     rb.constraints = RigidbodyConstraints.FreezeAll;  // 完全冻结，防止意外移动
+            // });
         }
 
         /// <summary>
@@ -106,7 +118,7 @@ namespace AFrameWork.Sample
             if (m_owner == null || !m_owner.HasObjectStats())
             {
 #if UNITY_EDITOR
-                Debug.LogWarning("Sword: 未找到父级 ObjectBase，阵营信息未继承", this);
+                // Debug.LogWarning("Sword: 未找到父级 ObjectBase，阵营信息未继承", this);
 #endif
                 return;
             }
@@ -175,16 +187,20 @@ namespace AFrameWork.Sample
         /// </summary>
         private void OnTriggerEnter(Collider other)
         {
+            Debug.Log($"剑命中 {other.name}", this);
+
             // 非攻击状态不造成伤害
             if (!m_isSwingActive)
             {
                 return;
             }
+            Debug.Log($"1", this);
 
             if (!HasObjectStats())
             {
                 return;
             }
+            Debug.Log($"2", this);
 
             ObjectStatsConfig myStats = GetObjectStats();
 
@@ -193,18 +209,21 @@ namespace AFrameWork.Sample
             {
                 return;
             }
+            Debug.Log($"3", this);
 
             // 获取目标 ObjectBase
             if (!other.TryGetComponent<ObjectBase>(out ObjectBase target))
             {
                 return;
             }
+            Debug.Log($"4", this);
 
             // 不攻击自身持有者
             if (target == m_owner)
             {
                 return;
             }
+            Debug.Log($"5", this);
 
             if (!target.HasObjectStats())
             {
@@ -212,12 +231,14 @@ namespace AFrameWork.Sample
             }
 
             ObjectStatsConfig targetStats = target.GetObjectStats();
+            Debug.Log($"6", this);
 
             // 目标已死亡
             if (targetStats.IsDead())
             {
                 return;
             }
+            Debug.Log($"7", this);
 
             // 同一次挥剑中同一目标只受一次伤害
             int targetInstanceId = target.GetInstanceID();
@@ -225,6 +246,7 @@ namespace AFrameWork.Sample
             {
                 return;
             }
+            Debug.Log($"8", this);
 
             // 阵营关系判定：能否对目标造成伤害
             if (!myStats.CanDealDamageTo(targetStats))
@@ -234,6 +256,7 @@ namespace AFrameWork.Sample
 
             // 使用带倍率的重载计算伤害（含防御减免）
             float damage = myStats.CalculateDamage(targetStats, m_attackMultiplier);
+            Debug.Log($"damage {damage}",  this);
 
             // 暴击判定：使用持有者暴击属性 + 攻击倍率中的暴击率调整
             // CriticalRateMultiplier 为 k_useBase 时使用持有者基础暴击率
@@ -256,8 +279,8 @@ namespace AFrameWork.Sample
             m_hitTargetIds.Add(targetInstanceId);
 
 #if UNITY_EDITOR
-            string critText = isCritical ? "（暴击）" : "";
-            Debug.Log($"剑命中 {target.name}，造成 {damage:F1} 点伤害{critText}", this);
+            // string critText = isCritical ? "（暴击）" : "";
+            // Debug.Log($"剑命中 {target.name}，造成 {damage:F1} 点伤害{critText}", this);
 #endif
         }
 
@@ -274,7 +297,7 @@ namespace AFrameWork.Sample
         protected override void OnDamaged(float damage)
         {
 #if UNITY_EDITOR
-            Debug.Log($"剑受到 {damage} 点伤害！");
+            // Debug.Log($"剑受到 {damage} 点伤害！");
 #endif
         }
 
@@ -284,7 +307,7 @@ namespace AFrameWork.Sample
         protected override void OnDeath()
         {
 #if UNITY_EDITOR
-            Debug.Log("剑被破坏！");
+            // Debug.Log("剑被破坏！");
 #endif
         }
 

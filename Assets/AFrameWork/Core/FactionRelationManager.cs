@@ -82,7 +82,7 @@ namespace AFrameWork.Core
                 }
             }
 
-            Debug.Log("阵营关系管理器已初始化，默认阵营关系已配置");
+            // Debug.Log("阵营关系管理器已初始化，默认阵营关系已配置");
         }
 
         /// <summary>
@@ -210,7 +210,7 @@ namespace AFrameWork.Core
         {
             // 示例：从配置文件加载阵营关系
             // 实际项目中需要实现具体的配置文件解析逻辑
-            Debug.Log($"从配置文件加载阵营关系：{configFilePath}");
+            // Debug.Log($"从配置文件加载阵营关系：{configFilePath}");
         }
 
         /// <summary>
@@ -221,7 +221,7 @@ namespace AFrameWork.Core
         {
             // 示例：保存阵营关系到配置文件
             // 实际项目中需要实现具体的配置文件保存逻辑
-            Debug.Log($"保存阵营关系到配置文件：{configFilePath}");
+            // Debug.Log($"保存阵营关系到配置文件：{configFilePath}");
         }
 
         #endregion
@@ -242,10 +242,10 @@ namespace AFrameWork.Core
         /// </summary>
         public static void PrintAllRelations()
         {
-            Debug.Log("阵营关系表：");
+            // Debug.Log("阵营关系表：");
             foreach (var kvp in s_factionRelations)
             {
-                Debug.Log($"阵营 {kvp.Key.Item1} 对阵营 {kvp.Key.Item2}：{kvp.Value}");
+                // Debug.Log($"阵营 {kvp.Key.Item1} 对阵营 {kvp.Key.Item2}：{kvp.Value}");
             }
         }
 

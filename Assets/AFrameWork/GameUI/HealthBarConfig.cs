@@ -235,20 +235,32 @@ namespace AFrameWork.GameUI
         public static HealthBarConfig CreateCompact()
         {
             return new HealthBarConfig(
-                width: 60f,
-                height: 8f,
+                width: 30f,
+                height: 6f,
                 offsetY: -15f,
                 showText: false);
         }
-
+        /// <summary>
+        /// 创建紧凑型血条配置（适合小目标）
+        /// </summary>
+        public static HealthBarConfig CreateRole()
+        {
+            return new HealthBarConfig(
+                width: 28f,
+                height: 6f,
+                offsetY: -12f,
+                showText: true,
+                lowHealthThreshold: 0.4f,
+                criticalHealthThreshold: 0.15f);
+        }
         /// <summary>
         /// 创建大型血条配置（适合Boss等大型目标）
         /// </summary>
         public static HealthBarConfig CreateLarge()
         {
             return new HealthBarConfig(
-                width: 200f,
-                height: 25f,
+                width: 100f,
+                height: 15f,
                 offsetY: -30f,
                 showText: true,
                 lowHealthThreshold: 0.4f,

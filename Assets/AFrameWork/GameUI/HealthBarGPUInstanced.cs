@@ -152,7 +152,7 @@ namespace AFrameWork.GameUI
             Shader shader = Shader.Find("AFrameWork/GameUI/HealthBarGPU");
             if (shader == null)
             {
-                Debug.LogError($"[{GetType().Name}] HealthBarGPU shader not found!", this);
+                // Debug.LogError($"[{GetType().Name}] HealthBarGPU shader not found!", this);
                 enabled = false;
                 return;
             }
@@ -170,7 +170,7 @@ namespace AFrameWork.GameUI
             m_camera = Camera.main;
             if (m_camera == null)
             {
-                Debug.LogWarning($"[{GetType().Name}] Camera.main not found in Start(), will lazy-bind in LateUpdate", this);
+                // Debug.LogWarning($"[{GetType().Name}] Camera.main not found in Start(), will lazy-bind in LateUpdate", this);
             }
         }
 

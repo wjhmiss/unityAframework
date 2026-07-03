@@ -144,7 +144,7 @@ namespace AFrameWork.GameUI
             if (m_uiDocument == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] UIDocument component is missing!", this);
+                // Debug.LogError($"[{GetType().Name}] UIDocument component is missing!", this);
 #endif
                 return;
             }
@@ -154,7 +154,7 @@ namespace AFrameWork.GameUI
             if (root == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] UIDocument.rootVisualElement is null!", this);
+                // Debug.LogError($"[{GetType().Name}] UIDocument.rootVisualElement is null!", this);
 #endif
                 return;
             }
@@ -164,13 +164,13 @@ namespace AFrameWork.GameUI
             {
                 root.styleSheets.Add(m_healthBarUss);
 #if UNITY_EDITOR
-                Debug.Log($"[{GetType().Name}] Added USS stylesheet to UIDocument root");
+                // Debug.Log($"[{GetType().Name}] Added USS stylesheet to UIDocument root");
 #endif
             }
             else
             {
 #if UNITY_EDITOR
-                Debug.LogWarning($"[{GetType().Name}] Health Bar Uss resource is null! Please configure it in Inspector.", this);
+                // Debug.LogWarning($"[{GetType().Name}] Health Bar Uss resource is null! Please configure it in Inspector.", this);
 #endif
             }
 
@@ -281,7 +281,7 @@ namespace AFrameWork.GameUI
             if (target == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] Target transform is null!", this);
+                // Debug.LogError($"[{GetType().Name}] Target transform is null!", this);
 #endif
                 return null;
             }
@@ -290,7 +290,7 @@ namespace AFrameWork.GameUI
             if (m_activeHealthBars.ContainsKey(target))
             {
 #if UNITY_EDITOR
-                Debug.LogWarning($"[{GetType().Name}] Health bar already exists for target: {target.name}", this);
+                // Debug.LogWarning($"[{GetType().Name}] Health bar already exists for target: {target.name}", this);
 #endif
                 return m_activeHealthBars[target];
             }
@@ -496,7 +496,7 @@ namespace AFrameWork.GameUI
             if (m_healthBarPrefab == null)
             {
 #if UNITY_EDITOR
-                Debug.LogError($"[{GetType().Name}] Health bar prefab template is null!", this);
+                // Debug.LogError($"[{GetType().Name}] Health bar prefab template is null!", this);
 #endif
                 return null;
             }

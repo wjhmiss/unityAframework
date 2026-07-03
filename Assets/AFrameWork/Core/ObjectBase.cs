@@ -1267,18 +1267,24 @@ namespace AFrameWork.Core
         /// <param name="sizeMultiplier">XYZ 轴分别的缩放因子，默认 (1,1,1) 不缩放</param>
         /// <param name="centerOffset">中心点的偏移量（本地空间），默认 Vector3.zero 不偏移。
         /// 例如 (0, 0.1f, 0) 将 Collider 中心向上移动 0.1 单位</param>
+        /// <param name="extraConfig">额外的配置回调，用于设置 isTrigger、material 等属性。
+        /// 例如：extraConfig = c => { c.isTrigger = false; c.material = physicsMaterial; }</param>
         /// <returns>配置好的 CapsuleCollider 实例</returns>
-        protected CapsuleCollider AddCapsuleCollider(Bounds bounds, Vector3 sizeMultiplier, Vector3 centerOffset = default)
+        protected CapsuleCollider AddCapsuleCollider(
+            Bounds bounds,
+            Vector3 sizeMultiplier,
+            Vector3 centerOffset = default,
+            Action<CapsuleCollider> extraConfig = null)
         {
             // 计算缩放后的尺寸和偏移后的中心点
             Vector3 scaledSize = Vector3.Scale(bounds.size, sizeMultiplier);
             Vector3 adjustedCenter = bounds.center + centerOffset;
 
 #if UNITY_EDITOR
-            Debug.Log($"[AddCapsuleCollider] {name}: " +
-                $"传入bounds(center={bounds.center}, size={bounds.size}), " +
-                $"sizeMultiplier={sizeMultiplier}, centerOffset={centerOffset}, " +
-                $"调整后center={adjustedCenter}, scaledSize={scaledSize}", this);
+            // Debug.Log($"[AddCapsuleCollider] {name}: " +
+            //     $"传入bounds(center={bounds.center}, size={bounds.size}), " +
+            //     $"sizeMultiplier={sizeMultiplier}, centerOffset={centerOffset}, " +
+            //     $"调整后center={adjustedCenter}, scaledSize={scaledSize}", this);
 #endif
 
             return AddObjectComponent<CapsuleCollider>(c =>
@@ -1321,9 +1327,12 @@ namespace AFrameWork.Core
                 c.center = adjustedCenter;
                 c.direction = direction;
 
+                // 执行额外配置（如设置 isTrigger、material 等）
+                extraConfig?.Invoke(c);
+
 #if UNITY_EDITOR
-                Debug.Log($"[AddCapsuleCollider-完成] {name}: 创建 CapsuleCollider " +
-                    $"(radius={c.radius}, height={c.height}, direction={c.direction}, center={c.center})", this);
+                // Debug.Log($"[AddCapsuleCollider-完成] {name}: 创建 CapsuleCollider " +
+                //     $"(radius={c.radius}, height={c.height}, direction={c.direction}, center={c.center})", this);
 #endif
             });
         }
@@ -1336,18 +1345,24 @@ namespace AFrameWork.Core
         /// <param name="sizeMultiplier">XYZ 轴分别的缩放因子，默认 (1,1,1) 不缩放</param>
         /// <param name="centerOffset">中心点的偏移量（本地空间），默认 Vector3.zero 不偏移。
         /// 例如 (0, -0.1f, 0) 将 Collider 中心向下移动 0.1 单位</param>
+        /// <param name="extraConfig">额外的配置回调，用于设置 isTrigger、material 等属性。
+        /// 例如：extraConfig = c => { c.isTrigger = true; c.material = physicsMaterial; }</param>
         /// <returns>配置好的 BoxCollider 实例</returns>
-        protected BoxCollider AddBoxCollider(Bounds bounds, Vector3 sizeMultiplier, Vector3 centerOffset = default)
+        protected BoxCollider AddBoxCollider(
+            Bounds bounds,
+            Vector3 sizeMultiplier,
+            Vector3 centerOffset = default,
+            Action<BoxCollider> extraConfig = null)
         {
             // 计算缩放后的尺寸和偏移后的中心点
             Vector3 scaledSize = Vector3.Scale(bounds.size, sizeMultiplier);
             Vector3 adjustedCenter = bounds.center + centerOffset;
 
 #if UNITY_EDITOR
-            Debug.Log($"[AddBoxCollider] {name}: " +
-                $"传入bounds(center={bounds.center}, size={bounds.size}), " +
-                $"sizeMultiplier={sizeMultiplier}, centerOffset={centerOffset}, " +
-                $"调整后center={adjustedCenter}, scaledSize={scaledSize}", this);
+            // Debug.Log($"[AddBoxCollider] {name}: " +
+            //     $"传入bounds(center={bounds.center}, size={bounds.size}), " +
+            //     $"sizeMultiplier={sizeMultiplier}, centerOffset={centerOffset}, " +
+            //     $"调整后center={adjustedCenter}, scaledSize={scaledSize}", this);
 #endif
 
             return AddObjectComponent<BoxCollider>(c =>
@@ -1355,9 +1370,12 @@ namespace AFrameWork.Core
                 c.center = adjustedCenter;
                 c.size = scaledSize;
 
+                // 执行额外配置（如设置 isTrigger、material 等）
+                extraConfig?.Invoke(c);
+
 #if UNITY_EDITOR
-                Debug.Log($"[AddBoxCollider-完成] {name}: 创建 BoxCollider " +
-                    $"(size={c.size}, center={c.center})", this);
+                // Debug.Log($"[AddBoxCollider-完成] {name}: 创建 BoxCollider " +
+                //     $"(size={c.size}, center={c.center})", this);
 #endif
             });
         }
@@ -1854,7 +1872,7 @@ namespace AFrameWork.Core
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[{GetType().Name}] Addressables 加载异常: key='{key}', 错误: {ex.Message}", this);
+                // Debug.LogError($"[{GetType().Name}] Addressables 加载异常: key='{key}', 错误: {ex.Message}", this);
                 Addressables.Release(handle);
                 return null;
             }
@@ -1866,7 +1884,7 @@ namespace AFrameWork.Core
                 return handle.Result;
             }
 
-            Debug.LogError($"[{GetType().Name}] Addressables 加载失败: key='{key}', 错误: {handle.OperationException?.Message}", this);
+            // Debug.LogError($"[{GetType().Name}] Addressables 加载失败: key='{key}', 错误: {handle.OperationException?.Message}", this);
             Addressables.Release(handle);
             return null;
         }
