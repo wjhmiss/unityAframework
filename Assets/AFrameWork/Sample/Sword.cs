@@ -83,7 +83,7 @@ namespace AFrameWork.Sample
 
             // 添加 BoxCollider，根据对象包围盒设置大小
             // sizeMultiplier: 剑通常较长，Y 轴放大，XZ 轴缩小
-            AddBoxCollider(CalculateObjectBounds(), new Vector3(1f, 3.0f, 1f), Vector3.zero);
+            AddBoxCollider(CalculateObjectBounds(), new Vector3(1f, 3.0f, 1f), new Vector3(0f, 1f, 0f));
 
 
             // Rigidbody — kinematic，仅用于触发检测

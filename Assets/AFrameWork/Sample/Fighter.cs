@@ -299,12 +299,21 @@ namespace AFrameWork.Sample
                 rb.constraints = RigidbodyConstraints.FreezeRotationX
                     | RigidbodyConstraints.FreezeRotationZ;
                 rb.freezeRotation = true;
+                rb.isKinematic = false; // 如果为true 则不会响应物理力，不会移动，如果为false 则会响应物理力，会移动
             });
             Debug.Log($"fighter m_rigidbody {m_rigidbody.isKinematic}", this);
 
             // CapsuleCollider — 硬编码尺寸，避免 Awake 时 CalculateObjectBounds 返回空包围盒
             // 添加 CapsuleCollider，new Vector3(-1f, 1f, 2f));  // 向左移动1，向上移动1`向前移动2，
-            AddCapsuleCollider(CalculateObjectBounds(), new Vector3(0.4f, 1.2f, 0.4f), new Vector3(0f, 0f, 0f));
+            AddCapsuleCollider(CalculateObjectBounds(), new Vector3(1f, 1f, 1f), Vector3.zero);
+            // AddObjectComponent<CapsuleCollider>(cc =>
+            // {
+            //     cc.radius = 0.2f;
+            //     cc.height = 1.5f;
+            //     cc.center = new Vector3(0f, 1f, 0f);
+            //     cc.isTrigger = false;
+            // });
+
 
             // 查找特效子对象
             Transform vfxRoot = transform.Find("VFX");
