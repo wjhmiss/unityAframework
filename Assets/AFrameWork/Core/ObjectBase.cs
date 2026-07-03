@@ -1173,6 +1173,32 @@ namespace AFrameWork.Core
                 return new Bounds(Vector3.zero, Vector3.one);
             }
 
+            // 收集子层级中带有 ObjectBase 的 GameObject 及其所有子对象，
+            // 这些属于独立实体（如武器、宠物），不应参与本对象的包围盒计算
+            HashSet<int> excludedInstanceIDs = null;
+            ObjectBase[] childObjectBases = GetComponentsInChildren<ObjectBase>(true);
+            for (int i = 0; i < childObjectBases.Length; i++)
+            {
+                // 跳过自身
+                if (childObjectBases[i] == this)
+                {
+                    continue;
+                }
+
+                if (excludedInstanceIDs == null)
+                {
+                    excludedInstanceIDs = new HashSet<int>();
+                }
+
+                // 标记该 ObjectBase 及其所有子 Renderer 的 instanceID
+                excludedInstanceIDs.Add(childObjectBases[i].GetInstanceID());
+                Renderer[] childRenderers = childObjectBases[i].GetComponentsInChildren<Renderer>(true);
+                for (int j = 0; j < childRenderers.Length; j++)
+                {
+                    excludedInstanceIDs.Add(childRenderers[j].GetInstanceID());
+                }
+            }
+
             // 使用 Mesh 的本地空间 bounds，通过矩阵变换合并到本对象本地空间
             // 相比 Renderer.bounds（世界空间 AABB），此方法对旋转对象计算更精确
             bool hasBounds = false;
@@ -1185,15 +1211,34 @@ namespace AFrameWork.Core
             {
                 Renderer currentRenderer = s_rendererBuffer[r];
 
+                // 跳过属于子 ObjectBase 的 Renderer（武器、宠物等独立实体）
+                if (excludedInstanceIDs != null && excludedInstanceIDs.Contains(currentRenderer.GetInstanceID()))
+                {
+                    continue;
+                }
+
+                // 跳过特效类 Renderer（VFXRenderer / ParticleSystemRenderer），
+                // 它们的 bounds 通常远大于角色实际体型，会导致 Collider 范围偏大
+                string rendererTypeName = currentRenderer.GetType().Name;
+                if (rendererTypeName == "VFXRenderer"
+                    || currentRenderer is ParticleSystemRenderer)
+                {
+                    continue;
+                }
+
                 // 初始化为 default 避免 CS0165（编译器无法推断 else 分支内嵌套 if 的赋值路径）
                 Bounds meshLocalBounds = default;
                 bool valid = false;
 
-                // 获取 Renderer 对应 Mesh 的本地空间 bounds
+                // SkinnedMeshRenderer.localBounds 不反映蒙皮后实际顶点位置（骨骼驱动顶点可能远超原始 mesh bounds），
+                // 使用 Renderer.bounds（世界空间 AABB）替代，通过 worldToLocal 变换到本对象本地空间
+                bool useWorldSpaceBounds = false;
+
                 if (currentRenderer is SkinnedMeshRenderer smr)
                 {
-                    meshLocalBounds = smr.localBounds;
+                    meshLocalBounds = smr.bounds;
                     valid = true;
+                    useWorldSpaceBounds = true;
                 }
                 else if (currentRenderer.TryGetComponent<MeshFilter>(out MeshFilter mf) && mf.sharedMesh != null)
                 {
@@ -1212,8 +1257,10 @@ namespace AFrameWork.Core
                     continue;
                 }
 
-                // 从 Renderer 本地空间到本对象本地空间的变换矩阵
-                Matrix4x4 rendererToLocal = worldToLocal * currentRenderer.transform.localToWorldMatrix;
+                // 世界空间 bounds 直接用 worldToLocal；本地空间 bounds 需要 renderer→local 变换
+                Matrix4x4 rendererToLocal = useWorldSpaceBounds
+                    ? worldToLocal
+                    : worldToLocal * currentRenderer.transform.localToWorldMatrix;
 
                 // 将 Mesh 本地包围盒的 8 个角点变换到本对象本地空间，合并得到精确的本地 AABB
                 Vector3 center = meshLocalBounds.center;
@@ -1265,8 +1312,9 @@ namespace AFrameWork.Core
         /// </summary>
         /// <param name="bounds">本地空间的包围盒，用于设置 Collider 的大小和位置</param>
         /// <param name="sizeMultiplier">XYZ 轴分别的缩放因子，默认 (1,1,1) 不缩放</param>
-        /// <param name="centerOffset">中心点的偏移量（本地空间），默认 Vector3.zero 不偏移。
-        /// 例如 (0, 0.1f, 0) 将 Collider 中心向上移动 0.1 单位</param>
+        /// <param name="centerOffset">中心点的偏移量（世界空间，单位=米），默认 Vector3.zero 不偏移。
+        /// 内部会除以 transform.lossyScale 转换到本地空间，因此无论父级缩放多大，
+        /// (0, 1, 0) 始终表示在世界空间中向上偏移 1 米。</param>
         /// <param name="extraConfig">额外的配置回调，用于设置 isTrigger、material 等属性。
         /// 例如：extraConfig = c => { c.isTrigger = false; c.material = physicsMaterial; }</param>
         /// <returns>配置好的 CapsuleCollider 实例</returns>
@@ -1278,7 +1326,13 @@ namespace AFrameWork.Core
         {
             // 计算缩放后的尺寸和偏移后的中心点
             Vector3 scaledSize = Vector3.Scale(bounds.size, sizeMultiplier);
-            Vector3 adjustedCenter = bounds.center + centerOffset;
+            // 将世界空间偏移转换为本地空间偏移，抵消父级缩放的影响
+            Vector3 lossyScale = transform.lossyScale;
+            Vector3 localOffset = new Vector3(
+                centerOffset.x / (lossyScale.x != 0f ? lossyScale.x : 1f),
+                centerOffset.y / (lossyScale.y != 0f ? lossyScale.y : 1f),
+                centerOffset.z / (lossyScale.z != 0f ? lossyScale.z : 1f));
+            Vector3 adjustedCenter = bounds.center + localOffset;
 
 #if UNITY_EDITOR
             // Debug.Log($"[AddCapsuleCollider] {name}: " +
@@ -1343,8 +1397,9 @@ namespace AFrameWork.Core
         /// </summary>
         /// <param name="bounds">本地空间的包围盒，用于设置 Collider 的大小和位置</param>
         /// <param name="sizeMultiplier">XYZ 轴分别的缩放因子，默认 (1,1,1) 不缩放</param>
-        /// <param name="centerOffset">中心点的偏移量（本地空间），默认 Vector3.zero 不偏移。
-        /// 例如 (0, -0.1f, 0) 将 Collider 中心向下移动 0.1 单位</param>
+        /// <param name="centerOffset">中心点的偏移量（世界空间，单位=米），默认 Vector3.zero 不偏移。
+        /// 内部会除以 transform.lossyScale 转换到本地空间，因此无论父级缩放多大，
+        /// (0, 1, 0) 始终表示在世界空间中向上偏移 1 米。</param>
         /// <param name="extraConfig">额外的配置回调，用于设置 isTrigger、material 等属性。
         /// 例如：extraConfig = c => { c.isTrigger = true; c.material = physicsMaterial; }</param>
         /// <returns>配置好的 BoxCollider 实例</returns>
@@ -1356,7 +1411,13 @@ namespace AFrameWork.Core
         {
             // 计算缩放后的尺寸和偏移后的中心点
             Vector3 scaledSize = Vector3.Scale(bounds.size, sizeMultiplier);
-            Vector3 adjustedCenter = bounds.center + centerOffset;
+            // 将世界空间偏移转换为本地空间偏移，抵消父级缩放的影响
+            Vector3 lossyScale = transform.lossyScale;
+            Vector3 localOffset = new Vector3(
+                centerOffset.x / (lossyScale.x != 0f ? lossyScale.x : 1f),
+                centerOffset.y / (lossyScale.y != 0f ? lossyScale.y : 1f),
+                centerOffset.z / (lossyScale.z != 0f ? lossyScale.z : 1f));
+            Vector3 adjustedCenter = bounds.center + localOffset;
 
 #if UNITY_EDITOR
             // Debug.Log($"[AddBoxCollider] {name}: " +
