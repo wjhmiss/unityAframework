@@ -90,6 +90,16 @@ namespace AFrameWork.GameUI
         [SerializeField]
         private int m_poolSize = k_defaultPoolSize;
 
+        /// <summary>
+        /// 缓存的主相机（避免每个 HealthBar 调用 Camera.main）
+        /// </summary>
+        private Camera m_cachedCamera;
+
+        /// <summary>
+        /// 活跃血条列表（用于批量迭代，避免 Dictionary 迭代开销）
+        /// </summary>
+        private List<HealthBar> m_activeList;
+
         // ══════════════════════════════════════════════════════════════════════════
         // 属性
         // ══════════════════════════════════════════════════════════════════════════
@@ -175,6 +185,7 @@ namespace AFrameWork.GameUI
             // 初始化数据结构
             m_healthBarPool = new Queue<GameObject>(m_poolSize);
             m_activeHealthBars = new Dictionary<Transform, HealthBar>(m_poolSize);
+            m_activeList = new List<HealthBar>(m_poolSize);
 
             // 设置默认配置
             m_defaultConfig = HealthBarConfig.CreateDefault();
@@ -200,6 +211,37 @@ namespace AFrameWork.GameUI
             if (m_healthBarContainer != null)
             {
                 Destroy(m_healthBarContainer.gameObject);
+            }
+        }
+
+        /// <summary>
+        /// 集中批量更新所有活跃血条。
+        /// 替代每个 HealthBar 各自的 LateUpdate，消除 N 个 native→managed 回调开销。
+        /// 位置每帧更新，遮挡检测每 0.15s，平滑过渡按 UpdateInterval 节流。
+        /// </summary>
+        private void LateUpdate()
+        {
+            if (m_activeHealthBars == null || m_activeHealthBars.Count == 0) return;
+
+            if (m_cachedCamera == null)
+            {
+                m_cachedCamera = Camera.main;
+                if (m_cachedCamera == null) return;
+            }
+
+            float time = Time.time;
+            float dt = Time.deltaTime;
+
+            // 使用 List 迭代避免 Dictionary 迭代器分配
+            m_activeList.Clear();
+            foreach (var kvp in m_activeHealthBars)
+            {
+                m_activeList.Add(kvp.Value);
+            }
+
+            for (int i = 0; i < m_activeList.Count; i++)
+            {
+                m_activeList[i].UpdateBar(m_cachedCamera, time, dt);
             }
         }
 

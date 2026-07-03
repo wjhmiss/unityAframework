@@ -294,7 +294,7 @@ namespace AFrameWork.Sample
             });
 
             // 添加 CapsuleCollider，new Vector3(-1f, 1f, 2f));  // 向左移动1，向上移动1`向前移动2，
-            AddCapsuleCollider(CalculateObjectBounds(), new Vector3(0.4f, 1.2f, 0.4f), new Vector3(-0.30f, -0.33f, -0.10f));
+            AddCapsuleCollider(CalculateObjectBounds(), new Vector3(0.4f, 1.2f, 0.4f), new Vector3(0f, 0f, 0f));
 
             // 查找特效子对象
             Transform vfxRoot = transform.Find("VFX");

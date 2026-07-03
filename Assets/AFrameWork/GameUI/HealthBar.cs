@@ -97,6 +97,11 @@ namespace AFrameWork.GameUI
         private float m_displayHealth;
 
         /// <summary>
+        /// 上次遮挡检测时间（用于节流，避免每帧 Raycast）
+        /// </summary>
+        private float m_lastOcclusionTime;
+
+        /// <summary>
         /// 上次更新时间（用于性能优化）
         /// </summary>
         private float m_lastUpdateTime;
@@ -166,6 +171,7 @@ namespace AFrameWork.GameUI
 
             // 初始化时间记录
             m_lastUpdateTime = Time.time;
+            m_lastOcclusionTime = 0f;
 
             // 设置默认配置
             m_config = HealthBarConfig.CreateDefault();
@@ -186,21 +192,38 @@ namespace AFrameWork.GameUI
             CleanupUIElements();
         }
 
-        private void LateUpdate()
-        {
-            // 位置更新每帧执行（轻量：WorldToScreenPoint + style 赋值，避免相机移动时抖动）
-            UpdatePosition();
+        // LateUpdate 已集中到 HealthBarController.LateUpdate 中批量调用，
+        // 消除 N 个 MonoBehaviour 回调的 native→managed 开销
 
-            // 性能优化：遮挡检测和平滑过渡按间隔节流
-            if (Time.time - m_lastUpdateTime < m_config.UpdateInterval)
+        /// <summary>
+        /// 集中更新入口（由 HealthBarController.LateUpdate 批量调用）。
+        /// 位置每帧更新（轻量），遮挡检测和平滑过渡按间隔节流。
+        /// </summary>
+        internal void UpdateBar(Camera cam, float time, float deltaTime)
+        {
+            if (!m_isInitialized) return;
+
+            // 确保相机引用
+            if (m_camera == null) m_camera = cam;
+            if (m_camera == null) return;
+
+            // 位置更新每帧执行（WorldToScreenPoint + style 赋值，轻量）
+            UpdatePosition(time);
+
+            // 遮挡检测节流（每 0.15 秒，RaycastNonAlloc 开销大）
+            if (m_config.EnableOcclusionCheck && time - m_lastOcclusionTime >= 0.15f)
             {
-                return;
+                m_lastOcclusionTime = time;
+                Vector3 worldPosition = m_targetTransform.position + Vector3.up * m_headOffset;
+                UpdateOcclusion(m_camera.transform.position, worldPosition);
             }
 
-            m_lastUpdateTime = Time.time;
-
-            // 更新血条平滑过渡
-            UpdateSmoothTransition();
+            // 平滑过渡节流
+            if (time - m_lastUpdateTime >= m_config.UpdateInterval)
+            {
+                m_lastUpdateTime = time;
+                UpdateSmoothTransition();
+            }
         }
 
         // ══════════════════════════════════════════════════════════════════════════
@@ -550,8 +573,9 @@ namespace AFrameWork.GameUI
 
         /// <summary>
         /// 更新血条位置（跟随目标对象）
+        /// 遮挡检测已移至 UpdateBar 中节流调用
         /// </summary>
-        private void UpdatePosition()
+        private void UpdatePosition(float time)
         {
             if (!m_isInitialized || m_healthBarElement == null || m_targetTransform == null)
             {
@@ -564,9 +588,6 @@ namespace AFrameWork.GameUI
                 m_camera = Camera.main;
                 if (m_camera == null)
                 {
-#if UNITY_EDITOR
-                    Debug.LogWarning($"[{GetType().Name}] Camera.main is null!", this);
-#endif
                     return;
                 }
             }
@@ -574,12 +595,8 @@ namespace AFrameWork.GameUI
             // 计算目标头部位置（世界坐标）
             Vector3 worldPosition = m_targetTransform.position + Vector3.up * m_headOffset;
 
-            // 遮挡检测：从相机到目标头部位置发射射线，检测中间是否有遮挡物
-            if (m_config.EnableOcclusionCheck)
-            {
-                UpdateOcclusion(m_camera.transform.position, worldPosition);
-            }
-            else if (m_isOccluded)
+            // 遮挡检测未启用时，确保透明度恢复
+            if (!m_config.EnableOcclusionCheck && m_isOccluded)
             {
                 m_isOccluded = false;
                 m_healthBarElement.style.opacity = 1f;
