@@ -18,7 +18,7 @@ namespace AFrameWork.GameUI
         /// <summary>
         /// 默认血条池大小
         /// </summary>
-        private const int k_defaultPoolSize = 20;
+        private const int k_defaultPoolSize = 30;
 
         /// <summary>
         /// 血条池最大容量

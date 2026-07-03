@@ -42,6 +42,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 55d400cd00f496741b941c7fc6ed6387
+    m_Address: NPC01_IDEL
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 576249d23941834438894ffa587b2450
     m_Address: player_Idel
     m_ReadOnly: 0
@@ -62,6 +67,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 956cf616103c1fc49a2ff0db68114726
+    m_Address: NPC01_HURT
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9d3ba219f9970d84c873734e3bdfc66b
     m_Address: player_Blade02
     m_ReadOnly: 0
@@ -72,8 +82,28 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: aa89ec6a1582d1a4398d2e96b3cc6e2c
+    m_Address: NPC01_ATTACK
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c19e3c0a5ab405c4f867d6ee798d1f36
     m_Address: player_Attack02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ddb0c7f6762bb7c429748af022dab4ba
+    m_Address: NPC01_WALK
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e723f05b8cf31614d808492b5b26c256
+    m_Address: NPC01_DEAD
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f10da67b14c9d8940b5291d587dfb6c4
+    m_Address: NPC01_Avatar
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

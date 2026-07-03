@@ -114,7 +114,7 @@ namespace AFrameWork.Sample
 
             // 添加 CapsuleCollider，根据对象包围盒设置大小
             // sizeMultiplier: XYZ 轴分别缩放，怪物碰撞体 XZ 稍大便于命中
-            AddCapsuleCollider(CalculateObjectBounds(), new Vector3(0.4f, 1.2f, 0.4f), new Vector3(-0.30f, -0.45f, -0.10f));
+            AddCapsuleCollider(CalculateObjectBounds(), new Vector3(0.4f, 1.2f, 0.4f), new Vector3(0f, 0f, 0f));
         }
 
         /// <summary>
