@@ -1,0 +1,129 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   血条样式文件 - HealthBar.uss
+   使用 BEM 命名规范，支持不同分辨率和屏幕比例
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 定义设计变量 - 便于全局调整 */
+:root
+{
+    --health-bar-width: 100px;
+    --health-bar-height: 12px;
+    --health-bar-offset-y: -20px;
+    --health-bar-bg-color: rgba(0, 0, 0, 0.7);
+    --health-bar-fill-color: rgba(220, 50, 50, 1.0);
+    --health-bar-fill-color-low: rgba(255, 165, 0, 1.0);
+    --health-bar-fill-color-critical: rgba(255, 0, 0, 1.0);
+    --health-bar-border-radius: 3px;
+    --health-bar-border-width: 1px;
+    --health-bar-border-color: rgba(0, 0, 0, 0.5);
+    --health-bar-text-color: rgba(255, 255, 255, 1.0);
+    --health-bar-text-size: 10px;
+    --health-bar-padding: 2px;
+}
+
+/* 血条容器 Block */
+.health-bar
+{
+    width: var(--health-bar-width);
+    height: var(--health-bar-height);
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 1;
+    transition: opacity 0.3s ease-out;
+    transform-origin: center bottom;
+}
+
+/* 血条隐藏状态 Modifier */
+.health-bar--hidden
+{
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 血条背景元素 Element */
+.health-bar__background
+{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--health-bar-bg-color);
+    border-radius: var(--health-bar-border-radius);
+    border-width: var(--health-bar-border-width);
+    border-color: var(--health-bar-border-color);
+    padding: var(--health-bar-padding);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 血条填充条 Element */
+.health-bar__fill
+{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--health-bar-fill-color);
+    border-radius: calc(var(--health-bar-border-radius) - var(--health-bar-padding));
+    transition: width 0.2s ease-out, background-color 0.3s ease-out;
+}
+
+/* 血条低血量状态 Modifier */
+.health-bar__fill--low
+{
+    background-color: var(--health-bar-fill-color-low);
+}
+
+/* 血条危急血量状态 Modifier */
+.health-bar__fill--critical
+{
+    background-color: var(--health-bar-fill-color-critical);
+}
+
+/* 血条文本 Element — 由父级 background 的 flex 布局居中 */
+.health-bar__text
+{
+    margin: 0;
+    padding: 0;
+    color: var(--health-bar-text-color);
+    font-size: var(--health-bar-text-size);
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* 血条文本隐藏状态 Modifier */
+.health-bar__text--hidden
+{
+    display: none;
+}
+
+/* 血条过渡动画 */
+.health-bar--fade-in
+{
+    opacity: 0;
+    transition: opacity 0.3s ease-in;
+}
+
+.health-bar--fade-out
+{
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+}
+
+/* 血条平滑动画 */
+.health-bar__fill--smooth
+{
+    transition: width 0.2s ease-out, background-color 0.3s ease-out;
+}
+
+/* 血条即时更新（无动画） */
+.health-bar__fill--instant
+{
+    transition: none;
+}

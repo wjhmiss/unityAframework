@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/AFrameWork/GameUI/HealthBar.uss?fileID=7433441132597879392&amp;guid=6ffd029c305ec7342b5dffe1f31fd10c&amp;type=3#HealthBar" />
+    <ui:VisualElement name="health-bar" class="health-bar">
+        <ui:VisualElement name="health-bar__background" class="health-bar__background">
+            <ui:VisualElement name="health-bar__fill" class="health-bar__fill" />
+            <ui:Label name="health-bar__text" text="100/100" enable-rich-text="true" class="health-bar__text" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

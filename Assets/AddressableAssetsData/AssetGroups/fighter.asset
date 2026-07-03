@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:yousandi.cn,2023:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: fighter
+  m_EditorClassIdentifier: 
+  m_GroupName: fighter
+  m_Data:
+    m_SerializedData: []
+  m_GUID: c20007a8abc6809469aacf5ddfff8cca
+  m_SerializeEntries:
+  - m_GUID: 0f6265ef15ccee34388a3a98a87e6163
+    m_Address: player_Attack03
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1056df52f46e61f4d983be2caae18f5b
+    m_Address: player_Hurt
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 20da72923e514224185e4c20c6d07d2d
+    m_Address: player_Blade01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 39ad8363dddb9774cb8489427972c33e
+    m_Address: player_Attack01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 516b93093dc5a454ab23835591c76e38
+    m_Address: player_Blade03
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 576249d23941834438894ffa587b2450
+    m_Address: player_Idel
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 629ae7cd5191ab5448a826a6fa4d0923
+    m_Address: player_VFXFootStep
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 688498e537145444ca4b635ed0bb31a3
+    m_Address: player_Avatar
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 689809aab1bd5524699f05df6f0ccba4
+    m_Address: player_Run
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9d3ba219f9970d84c873734e3bdfc66b
+    m_Address: player_Blade02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a8fe9eb5b49152749b454f97c05501c5
+    m_Address: player_Roll
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c19e3c0a5ab405c4f867d6ee798d1f36
+    m_Address: player_Attack02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 9dfe74ebd56deeb458fa9206cb4f40ac, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 81351fb60161c4c499d2e9cf09a36c40, type: 2}
+    - {fileID: 11400000, guid: 791a2e1bcbdd4be48bf166a745c5cd9b, type: 2}
