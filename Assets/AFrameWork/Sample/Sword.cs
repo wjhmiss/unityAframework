@@ -84,7 +84,13 @@ namespace AFrameWork.Sample
             // 添加 BoxCollider，根据对象包围盒设置大小
             // sizeMultiplier: 剑通常较长，Y 轴放大，XZ 轴缩小
             // centerOffset: 世界空间偏移，(0, 1, 0) = 向上偏移1米（不受父级scale影响）
-            AddBoxCollider(CalculateObjectBounds(), new Vector3(1f, 2.0f, 1f), new Vector3(0f, -1f, 0f));
+            //AddBoxCollider(CalculateObjectBounds(), new Vector3(1f, 2.0f, 1f), new Vector3(0f, -1f, 0f));
+
+
+            AddBoxCollider(CalculateObjectBounds(), new Vector3(1f, 2.0f, 1f), new Vector3(0f, -1f, 0f),cc =>
+            {
+                cc.isTrigger = true;
+            });
             // AddObjectComponent<BoxCollider>(cc =>
             // {
             //     cc.size = new Vector3(1f, 2.1f, 1f);
