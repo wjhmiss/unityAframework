@@ -55,6 +55,13 @@ namespace AFrameWork.Sample
         // 缓存的剑引用（子对象中的 Sword 组件）
         private Sword m_sword;
 
+        // ===== 子弹系统 =====
+        // 子弹生成位置（子对象 bulletPos）
+        private Transform m_bulletPos;
+        // 子弹预制体
+        [SerializeField]
+        private GameObject m_bulletPrefab;
+
         // ===== 翻滚系统状态字段 =====
         // 当前是否正在翻滚（翻滚期间禁止移动/攻击输入）
         private bool m_isRolling = false;
@@ -358,6 +365,18 @@ namespace AFrameWork.Sample
 
             // 查找武器子对象（Sword 组件）
             m_sword = GetComponentInChildren<Sword>();
+
+            // 查找子弹生成位置
+            m_bulletPos = transform.Find("bulletPos");
+
+            // 加载子弹预制体（未在 Inspector 中指定时从默认路径加载）
+            if (m_bulletPrefab == null)
+            {
+#if UNITY_EDITOR
+                m_bulletPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/AFrameWork/Sample/prefad/bullet.prefab");
+#endif
+            }
         }
 
         /// <summary>
@@ -534,6 +553,12 @@ namespace AFrameWork.Sample
             if (Input.GetMouseButtonDown(0))
             {
                 TryStartAttack();
+            }
+
+            // 子弹输入：Q 键按下时朝 Monster 发射一颗子弹
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                FireBullet();
             }
 
             // 攻击期间禁止移动：覆盖 HandleInput 读取的输入，清零水平速度
@@ -736,6 +761,41 @@ namespace AFrameWork.Sample
             if (m_sword != null)
             {
                 m_sword.EndSwing();
+            }
+        }
+
+        /// <summary>
+        /// 发射子弹：在 bulletPos 位置生成一颗子弹，朝场景中最近的 Monster 飞行。
+        /// </summary>
+        private void FireBullet()
+        {
+            if (m_bulletPrefab == null || m_bulletPos == null)
+            {
+                return;
+            }
+
+            // 查找场景中的 Monster
+            Monster monster = FindObjectOfType<Monster>();
+            if (monster == null)
+            {
+                return;
+            }
+
+            // 计算从 bulletPos 到 Monster 的方向（水平面）
+            Vector3 direction = monster.transform.position - m_bulletPos.position;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.01f)
+            {
+                return;
+            }
+
+            // 在 bulletPos 位置生成子弹（不作为 bulletPos 的子对象，避免随 Fighter 移动）
+            Quaternion spawnRotation = Quaternion.LookRotation(direction) * Quaternion.Euler(90f, 0f, 0f);
+            GameObject bulletObj = Instantiate(m_bulletPrefab, m_bulletPos.position, spawnRotation);
+            Bullet bullet = bulletObj.GetComponent<Bullet>();
+            if (bullet != null)
+            {
+                bullet.Initialize(this, direction);
             }
         }
 
