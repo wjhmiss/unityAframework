@@ -1,7 +1,7 @@
 using UnityEngine;
 using AFrameWork.Core;
 
-namespace AFrameWork.Sample
+namespace AFrameWork.Core.SmallBase
 {
     /// <summary>
     /// 投射物轻量基类（不继承 ObjectBase），供子弹、箭矢、火球等大量生成/销毁的飞行物体公用。

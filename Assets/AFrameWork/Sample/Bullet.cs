@@ -1,5 +1,6 @@
 using UnityEngine;
 using AFrameWork.Core;
+using AFrameWork.Core.SmallBase;
 
 namespace AFrameWork.Sample
 {

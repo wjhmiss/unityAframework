@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
 using AFrameWork.Core;
+using AFrameWork.Core.SmallBase;
 
 namespace AFrameWork.Sample
 {
