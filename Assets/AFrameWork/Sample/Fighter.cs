@@ -385,7 +385,7 @@ namespace AFrameWork.Sample
                 SimpleObjectPool pool = SimpleObjectPool.Instance;
                 if (pool != null && !pool.IsRegistered<Bullet>())
                 {
-                    //pool.RegisterPrefab<Bullet>(bulletPrefab, k_bulletPrewarm);
+                    pool.RegisterPrefab<Bullet>(bulletPrefab, k_bulletPrewarm);
                 }
             }
             else

@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.Pool;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using UnityEngine.ResourceManagement.ResourceLocations;
+
 using AFrameWork.Core;
 
 namespace AFrameWork.Core.SmallBase
@@ -231,63 +231,55 @@ namespace AFrameWork.Core.SmallBase
 
         /// <summary>
         /// 异步初始化对象池：遍历 Addressables 中标记 PoolObjects label 的所有预制体并注册。
-        /// 从预制体挂载的 SimpleObjectBase 组件推断类型，自动预热默认数量。
+        /// 从预制体挂载的 SimpleObjectBase 组件推断类型,自动预热默认数量。
         /// </summary>
         private async Task InitializePoolsAsync()
         {
             // 查找所有标记 PoolObjects label 的资源位置
-            AsyncOperationHandle<IList<IResourceLocation>> locationsHandle =
-                Addressables.LoadResourceLocationsAsync(k_poolLabel, Addressables.MergeMode.Union);
+            // Addressables 1.22.3 推荐使用 LoadResourceLocationsAsync(object key, Type type) 重载
+            // AsyncOperationHandle<IList<IResourceLocation>> locationsHandle =
+            //     Addressables.LoadResourceLocationsAsync(k_poolLabel, typeof(GameObject));
 
-            IList<IResourceLocation> locations = null;
+            List<string> keys = new List<string>() { k_poolLabel };
+            AsyncOperationHandle<IList<GameObject>> assetsHandle =
+                Addressables.LoadAssetsAsync<GameObject>(
+                    keys,
+                    null, // 无需回调，直接等待 Task 结果
+                    Addressables.MergeMode.Union,
+                    false
+                );
+
+            IList<GameObject> prefabs = null;
             bool handleCreated = false;
             try
             {
-                locations = await locationsHandle.Task;
-                Debug.Log($"[{GetType().Name}] 找到 {locations.Count} 个 Addressables label '{k_poolLabel}' 的预制体。");
+                prefabs = await assetsHandle.Task;
                 handleCreated = true;
+#if UNITY_EDITOR
+                Debug.Log($"[{GetType().Name}] 找到 {prefabs.Count} 个 Addressables label '{k_poolLabel}' 的预制体。");
+#endif
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[{GetType().Name}] 查找 Addressables label '{k_poolLabel}' 失败：{ex.Message}", this);
+                Debug.LogError($"[{GetType().Name}] 加载 Addressables label '{k_poolLabel}' 失败：{ex.Message}", this);
                 if (handleCreated)
                 {
-                    Addressables.Release(locationsHandle);
+                    Addressables.Release(assetsHandle);
                 }
                 return;
             }
 
-            if (locations == null || locations.Count == 0)
+            if (prefabs == null || prefabs.Count == 0)
             {
 #if UNITY_EDITOR
                 Debug.LogWarning($"[{GetType().Name}] Addressables 中未找到标记 '{k_poolLabel}' 的预制体。请在 Addressables Groups 窗口为预制体添加此 label。", this);
 #endif
-                Addressables.Release(locationsHandle);
+                Addressables.Release(assetsHandle);
                 return;
             }
 
-#if UNITY_EDITOR
-            Debug.Log($"[{GetType().Name}] 找到 {locations.Count} 个预制体，开始异步加载并注册...");
-#endif
-
-            // 并行加载所有预制体
-            List<Task<GameObject>> loadTasks = new List<Task<GameObject>>(locations.Count);
-            List<IResourceLocation> validLocations = new List<IResourceLocation>(locations.Count);
-
-            for (int i = 0; i < locations.Count; i++)
-            {
-                IResourceLocation location = locations[i];
-                if (location == null) continue;
-
-                validLocations.Add(location);
-                loadTasks.Add(LoadPrefabAsync(location));
-            }
-
-            // 等待所有加载完成
-            GameObject[] prefabs = await Task.WhenAll(loadTasks);
-
-            // 注册每个预制体
-            for (int i = 0; i < prefabs.Length; i++)
+            // 直接使用已加载的 GameObject，无需二次加载
+            for (int i = 0; i < prefabs.Count; i++)
             {
                 GameObject prefab = prefabs[i];
                 if (prefab == null) continue;
@@ -317,30 +309,8 @@ namespace AFrameWork.Core.SmallBase
 #endif
             }
 
-            // 释放资源位置句柄（预制体实例由各自池管理，不在此释放）
-            Addressables.Release(locationsHandle);
-        }
-
-        /// <summary>异步加载单个预制体。</summary>
-        private async Task<GameObject> LoadPrefabAsync(IResourceLocation location)
-        {
-            AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(location);
-            bool handleCreated = false;
-            try
-            {
-                GameObject prefab = await handle.Task;
-                handleCreated = true;
-                return prefab;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[{GetType().Name}] 加载预制体 '{location.PrimaryKey}' 失败：{ex.Message}", this);
-                if (handleCreated)
-                {
-                    Addressables.Release(handle);
-                }
-                return null;
-            }
+            // 释放加载句柄（预制体实例由各自池管理，不在此释放）
+            Addressables.Release(assetsHandle);
         }
 
         /// <summary>注册通用实现（非泛型版本，供 Inspector 自动注册复用）。</summary>
