@@ -20,7 +20,8 @@ MonoBehaviour:
   - m_GUID: e0facb6d1c31983469a9727b72674157
     m_Address: bullet
     m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - PoolObjects
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 9dfe74ebd56deeb458fa9206cb4f40ac, type: 2}

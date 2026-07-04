@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Pool;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceLocations;
 using AFrameWork.Core;
 
 namespace AFrameWork.Core.SmallBase
@@ -19,9 +23,11 @@ namespace AFrameWork.Core.SmallBase
     ///   - 真正瓶颈（Rigidbody 物理/Collider 触发/池 Get/Release）只与活跃实例数有关
     ///
     /// 使用方式：
-    ///   1. Inspector 配置：在 m_prefabEntries 列表中添加 (Type FullName, Prefab, Prewarm)
-    ///   2. 或运行时调用 RegisterPrefab&lt;T&gt;(prefab, prewarm)
-    ///   3. 发射：SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(pos, dir, owner, damage)
+    ///   1. Addressables 配置：在 Addressables Groups 窗口为预制体添加 "PoolObjects" label
+    ///   2. 预制体要求：根节点必须挂载 SimpleObjectBase 子类组件（用于推断类型）
+    ///   3. 自动注册：Start 时自动遍历 Addressables 中标记 PoolObjects label 的预制体并注册
+    ///   4. 发射：SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(pos, dir, owner, damage)
+    ///   5. 运行时注册：可选调用 RegisterPrefab&lt;T&gt;(prefab, prewarm) 手动注册
     ///
     /// 回收时序：
     ///   - 子类 Tick/OnTriggerEnter 仅调 SimpleObjectBase.Deactivate() 设置 m_isAlive=false
@@ -48,35 +54,17 @@ namespace AFrameWork.Core.SmallBase
 
         #endregion
 
-        #region Inspector 配置（混合注册方式：Inspector + 运行时 API）
+        #region Addressables 配置常量
 
-        /// <summary>
-        /// Inspector 配置条目：每条对应一种 SimpleObjectBase 子类的 prefab。
-        /// typeName 必须是 SimpleObjectBase 子类的完整类型名（含命名空间），
-        /// 启动时通过 Type.GetType 解析。
-        /// </summary>
-        [Serializable]
-        public class PrefabEntry
-        {
-            [Tooltip("SimpleObjectBase 子类的完整类型名（含命名空间），例如 AFrameWork.Sample.Bullet")]
-            public string typeName;
+        // Addressables label：所有需要池化的预制体都应标记此 label
+        // 在 Addressables Groups 窗口中为预制体添加 "PoolObjects" label
+        private const string k_poolLabel = "PoolObjects";
 
-            [Tooltip("对象预制体（根节点需挂载对应 SimpleObjectBase 子类组件）")]
-            public GameObject prefab;
+        // 默认预热数量：每种类型初始化时预先创建的实例数
+        private const int k_defaultPrewarmCount = 10;
 
-            [Tooltip("预热数量（场景加载时预先创建的实例数）")]
-            [Min(0)]
-            public int prewarm = 10;
-        }
-
-        [Header("对象池配置")]
-        [Tooltip("所有对象 prefab 配置。启动时自动注册。")]
-        [SerializeField]
-        private List<PrefabEntry> m_prefabEntries = new List<PrefabEntry>();
-
-        [Tooltip("池最大容量（每种类型独立限制，超过时销毁而非回收）")]
-        [SerializeField]
-        private int m_maxPoolSize = 300;
+        // 池最大容量：每种类型独立限制，超过时销毁而非回收
+        private const int k_maxPoolSize = 300;
 
         #endregion
 
@@ -122,32 +110,15 @@ namespace AFrameWork.Core.SmallBase
             // 创建池根节点
             m_poolRoot = new GameObject("SimpleObjectPool_Root").transform;
             m_poolRoot.SetParent(transform, false);
+        }
 
-            // 遍历 Inspector 配置，自动注册
-            for (int i = 0; i < m_prefabEntries.Count; i++)
-            {
-                PrefabEntry entry = m_prefabEntries[i];
-                if (entry == null || string.IsNullOrEmpty(entry.typeName) || entry.prefab == null)
-                {
-                    Debug.LogWarning($"[{GetType().Name}] PrefabEntry[{i}] 配置不完整，已跳过。", this);
-                    continue;
-                }
-
-                Type t = Type.GetType(entry.typeName);
-                if (t == null)
-                {
-                    Debug.LogError($"[{GetType().Name}] 无法解析类型：{entry.typeName}。请检查 typeName 是否包含命名空间。", this);
-                    continue;
-                }
-
-                if (!typeof(SimpleObjectBase).IsAssignableFrom(t))
-                {
-                    Debug.LogError($"[{GetType().Name}] 类型 {entry.typeName} 不继承 SimpleObjectBase，已跳过。", this);
-                    continue;
-                }
-
-                RegisterPrefabInternal(t, entry.prefab, entry.prewarm);
-            }
+        /// <summary>
+        /// 异步初始化：遍历 Addressables 中标记 PoolObjects label 的预制体并注册。
+        /// 自动从预制体挂载的 SimpleObjectBase 组件推断类型。
+        /// </summary>
+        private async void Start()
+        {
+            await InitializePoolsAsync();
         }
 
         private void OnDestroy()
@@ -258,6 +229,120 @@ namespace AFrameWork.Core.SmallBase
 
         #region 内部：池注册与回调
 
+        /// <summary>
+        /// 异步初始化对象池：遍历 Addressables 中标记 PoolObjects label 的所有预制体并注册。
+        /// 从预制体挂载的 SimpleObjectBase 组件推断类型，自动预热默认数量。
+        /// </summary>
+        private async Task InitializePoolsAsync()
+        {
+            // 查找所有标记 PoolObjects label 的资源位置
+            AsyncOperationHandle<IList<IResourceLocation>> locationsHandle =
+                Addressables.LoadResourceLocationsAsync(k_poolLabel, Addressables.MergeMode.Union);
+
+            IList<IResourceLocation> locations = null;
+            bool handleCreated = false;
+            try
+            {
+                locations = await locationsHandle.Task;
+                Debug.Log($"[{GetType().Name}] 找到 {locations.Count} 个 Addressables label '{k_poolLabel}' 的预制体。");
+                handleCreated = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{GetType().Name}] 查找 Addressables label '{k_poolLabel}' 失败：{ex.Message}", this);
+                if (handleCreated)
+                {
+                    Addressables.Release(locationsHandle);
+                }
+                return;
+            }
+
+            if (locations == null || locations.Count == 0)
+            {
+#if UNITY_EDITOR
+                Debug.LogWarning($"[{GetType().Name}] Addressables 中未找到标记 '{k_poolLabel}' 的预制体。请在 Addressables Groups 窗口为预制体添加此 label。", this);
+#endif
+                Addressables.Release(locationsHandle);
+                return;
+            }
+
+#if UNITY_EDITOR
+            Debug.Log($"[{GetType().Name}] 找到 {locations.Count} 个预制体，开始异步加载并注册...");
+#endif
+
+            // 并行加载所有预制体
+            List<Task<GameObject>> loadTasks = new List<Task<GameObject>>(locations.Count);
+            List<IResourceLocation> validLocations = new List<IResourceLocation>(locations.Count);
+
+            for (int i = 0; i < locations.Count; i++)
+            {
+                IResourceLocation location = locations[i];
+                if (location == null) continue;
+
+                validLocations.Add(location);
+                loadTasks.Add(LoadPrefabAsync(location));
+            }
+
+            // 等待所有加载完成
+            GameObject[] prefabs = await Task.WhenAll(loadTasks);
+
+            // 注册每个预制体
+            for (int i = 0; i < prefabs.Length; i++)
+            {
+                GameObject prefab = prefabs[i];
+                if (prefab == null) continue;
+
+                // 从预制体获取 SimpleObjectBase 组件推断类型
+                SimpleObjectBase component = prefab.GetComponent<SimpleObjectBase>();
+                if (component == null)
+                {
+                    Debug.LogWarning($"[{GetType().Name}] 预制体 '{prefab.name}' 未挂载 SimpleObjectBase 组件，已跳过。", this);
+                    continue;
+                }
+
+                Type type = component.GetType();
+                if (m_pools.ContainsKey(type))
+                {
+#if UNITY_EDITOR
+                    Debug.LogWarning($"[{GetType().Name}] 类型 '{type.Name}' 已注册，跳过重复注册。", this);
+#endif
+                    continue;
+                }
+
+                // 注册到对象池
+                RegisterPrefabInternal(type, prefab, k_defaultPrewarmCount);
+
+#if UNITY_EDITOR
+                Debug.Log($"[{GetType().Name}] 已注册类型 '{type.Name}'，预热数量 {k_defaultPrewarmCount}。", this);
+#endif
+            }
+
+            // 释放资源位置句柄（预制体实例由各自池管理，不在此释放）
+            Addressables.Release(locationsHandle);
+        }
+
+        /// <summary>异步加载单个预制体。</summary>
+        private async Task<GameObject> LoadPrefabAsync(IResourceLocation location)
+        {
+            AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(location);
+            bool handleCreated = false;
+            try
+            {
+                GameObject prefab = await handle.Task;
+                handleCreated = true;
+                return prefab;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{GetType().Name}] 加载预制体 '{location.PrimaryKey}' 失败：{ex.Message}", this);
+                if (handleCreated)
+                {
+                    Addressables.Release(handle);
+                }
+                return null;
+            }
+        }
+
         /// <summary>注册通用实现（非泛型版本，供 Inspector 自动注册复用）。</summary>
         private void RegisterPrefabInternal(Type type, GameObject prefab, int prewarm)
         {
@@ -279,7 +364,7 @@ namespace AFrameWork.Core.SmallBase
                     actionOnDestroy: OnObjectDestroy,
                     collectionCheck: true,
                     defaultCapacity: 16,
-                    maxSize: m_maxPoolSize)
+                    maxSize: k_maxPoolSize)
             };
             m_pools[type] = entry;
 
