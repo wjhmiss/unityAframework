@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.VFX;
 using AFrameWork.Core;
+using AFrameWork.Core.SmallBase;
 using AFrameWork.GameUI;
 
 namespace AFrameWork.Sample
@@ -506,7 +507,7 @@ namespace AFrameWork.Sample
             m_cachedHorizontal = Input.GetAxisRaw("Horizontal");
             m_cachedVertical = Input.GetAxisRaw("Vertical");
 
-            // 子弹输入：Q 键按下时朝最近敌方发射一颗子弹（通过 ProjectileManager 对象池）
+            // 子弹输入：Q 键按下时朝最近敌方发射一颗子弹（通过 SimpleObjectPool 对象池）
             // 不依赖动画系统，放在动画加载检查之前，确保场景加载初期即可发射
             if (Input.GetKeyDown(KeyCode.Q))
             {
@@ -754,9 +755,9 @@ namespace AFrameWork.Sample
         }
 
         /// <summary>
-        /// 发射子弹：通过 ProjectileManager 从对象池取一颗子弹，朝最近敌方目标飞行。
+        /// 发射子弹：通过 SimpleObjectPool 从对象池取一颗子弹，朝最近敌方目标飞行。
         /// 目标查找使用 TargetRegistry（方案 D），避免 FindObjectOfType 的 O(N) 场景扫描。
-        /// 子弹伤害使用 Fighter 的 PhysicalAttack（方案 A/B/C/E 优化见 ProjectileBase/ProjectileManager）。
+        /// 子弹伤害使用 Fighter 的 PhysicalAttack（方案 A/B/C/E 优化见 SimpleObjectBase/SimpleObjectPool）。
         /// </summary>
         private void FireBullet()
         {
@@ -771,19 +772,19 @@ namespace AFrameWork.Sample
             direction.y = 0f;
             if (direction.sqrMagnitude < 0.01f) return;
 
-            // 通过 ProjectileManager 发射（对象池复用，无 Instantiate/Destroy）
-            ProjectileManager manager = ProjectileManager.Instance;
-            if (manager == null)
+            // 通过 SimpleObjectPool 发射（对象池复用，无 Instantiate/Destroy）
+            SimpleObjectPool pool = SimpleObjectPool.Instance;
+            if (pool == null)
             {
 #if UNITY_EDITOR
-                Debug.LogWarning($"[{GetType().Name}] 场景中未找到 ProjectileManager，子弹发射失败。", this);
+                Debug.LogWarning($"[{GetType().Name}] 场景中未找到 SimpleObjectPool，子弹发射失败。", this);
 #endif
                 return;
             }
 
             // 伤害值取 Fighter 的物理攻击力
             float damage = HasObjectStats() ? GetObjectStats().PhysicalAttack : 10f;
-            manager.FireBullet(m_bulletPos.position, direction, this, damage, DamageType.Physical);
+            pool.Launch<Bullet>(m_bulletPos.position, direction, this, damage, DamageType.Physical);
         }
 
         /// <summary>

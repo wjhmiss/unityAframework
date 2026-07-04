@@ -4,23 +4,29 @@ using AFrameWork.Core;
 namespace AFrameWork.Core.SmallBase
 {
     /// <summary>
-    /// 投射物轻量基类（不继承 ObjectBase），供子弹、箭矢、火球等大量生成/销毁的飞行物体公用。
+    /// 轻量可池化对象基类（不继承 ObjectBase），供子弹、箭矢、火球、特效实例等大量生成/销毁的物体公用。
     ///
     /// 设计目标（对应优化方案 A/B/C/E）：
     ///   - 方案 B：脱离 ObjectBase，避免 PlayableGraph/动画槽位/组件缓存字典等无关开销
     ///   - 方案 C：owner 阵营信息以 int 字段直接存储，避免每次访问 ObjectStatsConfig 属性产生 GC
-    ///   - 方案 A：提供 OnGetFromPool/OnReleaseToPool 钩子，配合 ProjectileManager 的 ObjectPool 复用
-    ///   - 方案 E：以 Tick(deltaTime) 取代 MonoBehaviour.Update，由 ProjectileManager 单点批量驱动
+    ///   - 方案 A：提供 OnGetFromPool/OnReleaseToPool 钩子，配合 SimpleObjectPool 的 ObjectPool 复用
+    ///   - 方案 E：以 Tick(deltaTime) 取代 MonoBehaviour.Update，由 SimpleObjectPool 单点批量驱动
     ///
     /// 子类只需重写：
     ///   - SetupCollider()：配置碰撞体形状/尺寸（子弹用 Sphere，箭矢用 Capsule 等）
-    ///   - Tick(deltaTime)：每帧位移与超距/寿命检测（调用 Release() 回收）
-    ///   - 可选 OnHitTarget / OnExpire：命中/过期时的子类特效逻辑
+    ///   - Tick(deltaTime)：每帧逻辑与寿命检测（调用 Deactivate() 回收）
+    ///   - 可选 OnHit / OnLifetimeEnd：命中/过期时的子类特效逻辑
+    ///   - 可选 ConfigureParameters：覆盖速度/最大距离等参数
+    ///
+    /// 扩展示例（新增 Arrow）：
+    ///   1. public class Arrow : SimpleObjectBase { SetupCollider→Capsule; Tick→寿命+下坠; ConfigureParameters→速度 }
+    ///   2. SimpleObjectPool.Instance.RegisterPrefab&lt;Arrow&gt;(arrowPrefab, prewarm:20);
+    ///   3. SimpleObjectPool.Instance.Launch&lt;Arrow&gt;(pos, dir, owner, damage);
     ///
     /// 阵营判定镜像 ObjectStatsConfig.CanDealDamageTo，使用存储的 owner 字段比较，
     /// 命中时仅读取 target 的 ObjectStatsConfig（已缓存于 target 侧，无 GC）。
     /// </summary>
-    public abstract class ProjectileBase : MonoBehaviour
+    public abstract class SimpleObjectBase : MonoBehaviour
     {
         #region 默认运动参数（子类可在 Initialize 中覆盖）
 
@@ -58,20 +64,20 @@ namespace AFrameWork.Core.SmallBase
         protected float m_magicPenetration;
 
         // ===== 池生命周期标志 =====
-        // 是否处于活跃飞行状态（false 时由 Manager 回收）
-        private bool m_isActive = false;
+        // 是否仍处于活跃状态（false 时由 Pool 回收）
+        private bool m_isAlive = false;
         // 是否已初始化（用于跳过未初始化的 Tick）
         protected bool m_isInitialized = false;
 
         #endregion
 
-        #region 公开属性（供 ProjectileManager 查询）
+        #region 公开属性（供 SimpleObjectPool 查询）
 
-        /// <summary>是否仍处于活跃飞行状态。false 表示需要被 Manager 回收。</summary>
-        public bool IsActive => m_isActive;
+        /// <summary>是否仍处于活跃状态。false 表示需要被 Pool 回收。</summary>
+        public bool IsAlive => m_isAlive;
 
-        /// <summary>Rigidbody 引用（Manager 可用于批量设置）</summary>
-        public Rigidbody CachedRigidbody => m_rigidbody;
+        /// <summary>Rigidbody 引用（Pool 可用于批量设置）</summary>
+        public Rigidbody RigidbodyRef => m_rigidbody;
 
         #endregion
 
@@ -85,7 +91,7 @@ namespace AFrameWork.Core.SmallBase
                 m_rigidbody = gameObject.AddComponent<Rigidbody>();
             }
 
-            // 投射物通用 Rigidbody 配置：无重力、冻结旋转
+            // 通用 Rigidbody 配置：无重力、冻结旋转
             m_rigidbody.useGravity = false;
             m_rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
             m_rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
@@ -94,7 +100,7 @@ namespace AFrameWork.Core.SmallBase
             SetupCollider();
         }
 
-        // 不使用 Start / Update —— 初始化在 Initialize 中完成，每帧逻辑由 Manager 调用 Tick
+        // 不使用 Start / Update —— 初始化在 Initialize 中完成，每帧逻辑由 Pool 调用 Tick
 
         #endregion
 
@@ -107,31 +113,31 @@ namespace AFrameWork.Core.SmallBase
         protected abstract void SetupCollider();
 
         /// <summary>
-        /// 每帧由 ProjectileManager 单点调用，子类实现位移推进与超距/寿命检测。
-        /// 检测到需要回收时调用 Release()。
-        /// 注意：不要在此方法中直接调用对象池 Release，仅调用本类 Release() 设置标志。
+        /// 每帧由 SimpleObjectPool 单点调用，子类实现位移推进与寿命检测。
+        /// 检测到需要回收时调用 Deactivate()。
+        /// 注意：不要在此方法中直接调用对象池 Release，仅调用本类 Deactivate() 设置标志。
         /// </summary>
         public abstract void Tick(float deltaTime);
 
         /// <summary>命中有效目标后的回调（伤害已由基类应用），子类可播放命中特效。</summary>
-        protected virtual void OnHitTarget(ObjectBase target, float finalDamage) { }
+        protected virtual void OnHit(ObjectBase target, float finalDamage) { }
 
-        /// <summary>因超距/寿命到期回收时的回调，子类可播放消失特效。</summary>
-        protected virtual void OnExpire() { }
+        /// <summary>因寿命到期回收时的回调，子类可播放消失特效。</summary>
+        protected virtual void OnLifetimeEnd() { }
 
         /// <summary>
         /// 子类可重写以覆盖默认运动参数（速度/最大距离）。
         /// 在 Initialize 之后由基类调用，子类按需设置 m_speed / m_maxDistanceSqr。
         /// </summary>
-        protected virtual void ConfigureMotion() { }
+        protected virtual void ConfigureParameters() { }
 
         #endregion
 
-        #region 初始化（由 ProjectileManager 在 Get 后调用）
+        #region 初始化（由 SimpleObjectPool 在 Get 后调用）
 
         /// <summary>
-        /// 初始化投射物：位置、方向、Owner 阵营、伤害参数。
-        /// 由 Manager 在从池中取出后立即调用。
+        /// 初始化：位置、方向、Owner 阵营、伤害参数。
+        /// 由 Pool 在从池中取出后立即调用。
         /// </summary>
         public virtual void Initialize(
             Vector3 position,
@@ -180,7 +186,7 @@ namespace AFrameWork.Core.SmallBase
             // 子类覆盖运动参数
             m_speed = k_defaultSpeed;
             m_maxDistanceSqr = k_defaultMaxDistanceSqr;
-            ConfigureMotion();
+            ConfigureParameters();
 
             // 应用初速度
             if (m_rigidbody != null)
@@ -189,18 +195,18 @@ namespace AFrameWork.Core.SmallBase
             }
 
             m_isInitialized = true;
-            m_isActive = true;
+            m_isAlive = true;
         }
 
         #endregion
 
-        #region 池钩子（由 ProjectileManager 调用）
+        #region 池钩子（由 SimpleObjectPool 调用）
 
         /// <summary>从池中取出时调用，重置状态并激活 GameObject。</summary>
         public virtual void OnGetFromPool()
         {
             gameObject.SetActive(true);
-            m_isActive = true;
+            m_isAlive = true;
             m_isInitialized = false;
             m_moveDirection = Vector3.zero;
             m_startPosition = Vector3.zero;
@@ -215,7 +221,7 @@ namespace AFrameWork.Core.SmallBase
         /// <summary>归还池时调用，停用 GameObject 并清理状态。</summary>
         public virtual void OnReleaseToPool()
         {
-            m_isActive = false;
+            m_isAlive = false;
             m_isInitialized = false;
 
             if (m_rigidbody != null)
@@ -228,12 +234,13 @@ namespace AFrameWork.Core.SmallBase
         }
 
         /// <summary>
-        /// 请求回收：仅设置 m_isActive=false，由 ProjectileManager.Update 统一调用 pool.Release。
-        /// 这样避免在 Tick/OnTriggerEnter 中修改 m_activeBullets 列表导致的迭代冲突。
+        /// 请求回收：仅设置 m_isAlive=false，由 SimpleObjectPool.Update 统一调用 pool.Release。
+        /// 这样避免在 Tick/OnTriggerEnter 中修改 m_activeObjects 列表导致的迭代冲突。
+        /// 命名为 Deactivate 以与 ObjectPool.Release 区分。
         /// </summary>
-        protected void Release()
+        protected void Deactivate()
         {
-            m_isActive = false;
+            m_isAlive = false;
         }
 
         #endregion
@@ -242,7 +249,7 @@ namespace AFrameWork.Core.SmallBase
 
         protected virtual void OnTriggerEnter(Collider other)
         {
-            if (!m_isActive) return;
+            if (!m_isAlive) return;
 
             // 使用 TryGetComponent（比 GetComponent + null check 更高效）
             if (!other.TryGetComponent<ObjectBase>(out ObjectBase target)) return;
@@ -258,10 +265,10 @@ namespace AFrameWork.Core.SmallBase
             float finalDamage = CalculateFinalDamage(targetStats);
             target.TakeDamage(finalDamage);
 
-            OnHitTarget(target, finalDamage);
+            OnHit(target, finalDamage);
 
             // 命中后回收
-            Release();
+            Deactivate();
         }
 
         #endregion

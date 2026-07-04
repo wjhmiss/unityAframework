@@ -6,6 +6,7 @@ namespace AFrameWork.Sample
 {
     /// <summary>
     /// 目标注册表（方案 D）：消除 Fighter.FireBullet 中的 FindObjectOfType&lt;Monster&gt; O(N) 场景扫描。
+    /// 供 SimpleObjectPool.Launch 时查找最近敌方目标。
     ///
     /// 用法：
     ///   - Monster/Fighter 等 ObjectBase 在 OnEnable 调用 Register(this)
