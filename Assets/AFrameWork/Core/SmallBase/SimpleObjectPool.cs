@@ -256,7 +256,7 @@ namespace AFrameWork.Core.SmallBase
                 prefabs = await assetsHandle.Task;
                 handleCreated = true;
 #if UNITY_EDITOR
-                Debug.Log($"[{GetType().Name}] 找到 {prefabs.Count} 个 Addressables label '{k_poolLabel}' 的预制体。");
+                //Debug.Log($"[{GetType().Name}] 找到 {prefabs.Count} 个 Addressables label '{k_poolLabel}' 的预制体。");
 #endif
             }
             catch (Exception ex)
@@ -296,7 +296,7 @@ namespace AFrameWork.Core.SmallBase
                 if (m_pools.ContainsKey(type))
                 {
 #if UNITY_EDITOR
-                    Debug.LogWarning($"[{GetType().Name}] 类型 '{type.Name}' 已注册，跳过重复注册。", this);
+                    //Debug.LogWarning($"[{GetType().Name}] 类型 '{type.Name}' 已注册，跳过重复注册。", this);
 #endif
                     continue;
                 }
