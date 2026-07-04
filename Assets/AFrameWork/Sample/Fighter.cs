@@ -495,6 +495,9 @@ namespace AFrameWork.Sample
             // 初始化血条显示（当前血量/最大血量）
             m_healthBar.InitializeHealth(GetCurrentHealth(), GetMaxHealth());
 
+            // 初始化魔法值条显示（当前魔法值/最大魔法值）
+            m_healthBar.InitializeMagic(GetCurrentMana(), GetMaxMana());
+
             // 显示血条
             m_healthBar.Show();
 
@@ -971,6 +974,11 @@ namespace AFrameWork.Sample
 #if UNITY_EDITOR
             // Debug.Log($"战士消耗 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
 #endif
+            // 更新魔法值条显示
+            if (m_healthBar != null)
+            {
+                m_healthBar.UpdateMagic(GetCurrentMana(), GetMaxMana());
+            }
         }
 
         /// <summary>
@@ -981,6 +989,11 @@ namespace AFrameWork.Sample
 #if UNITY_EDITOR
             // Debug.Log($"战士恢复 {amount} 点魔法值！当前魔法值：{GetCurrentMana()}/{GetMaxMana()}");
 #endif
+            // 更新魔法值条显示
+            if (m_healthBar != null)
+            {
+                m_healthBar.UpdateMagic(GetCurrentMana(), GetMaxMana());
+            }
         }
 
         /// <summary>

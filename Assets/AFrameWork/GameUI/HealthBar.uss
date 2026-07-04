@@ -19,19 +19,24 @@
     --health-bar-text-color: rgba(255, 255, 255, 1.0);
     --health-bar-text-size: 10px;
     --health-bar-padding: 2px;
+    --health-bar-mana-height: 5px;
+    --health-bar-mana-fill-color: rgba(50, 100, 255, 1.0);
+    --health-bar-mana-gap: 0px;
 }
 
 /* 血条容器 Block */
 .health-bar
 {
     width: var(--health-bar-width);
-    height: var(--health-bar-height);
     position: absolute;
     left: 0;
     top: 0;
     opacity: 1;
     transition: opacity 0.3s ease-out;
     transform-origin: center bottom;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
 }
 
 /* 血条隐藏状态 Modifier */
@@ -44,20 +49,21 @@
 /* 血条背景元素 Element */
 .health-bar__background
 {
-    position: absolute;
+    position: relative;
     left: 0;
     top: 0;
     width: 100%;
-    height: 100%;
+    height: var(--health-bar-height);
     background-color: var(--health-bar-bg-color);
-    border-radius: var(--health-bar-border-radius);
-    border-width: var(--health-bar-border-width);
+    border-radius: var(--health-bar-border-radius) var(--health-bar-border-radius) 0 0;
+    border-width: var(--health-bar-border-width) var(--health-bar-border-width) 0 var(--health-bar-border-width);
     border-color: var(--health-bar-border-color);
-    padding: var(--health-bar-padding);
+    padding: var(--health-bar-padding) var(--health-bar-padding) 0 var(--health-bar-padding);
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 /* 血条填充条 Element */
@@ -69,7 +75,7 @@
     width: 100%;
     height: 100%;
     background-color: var(--health-bar-fill-color);
-    border-radius: calc(var(--health-bar-border-radius) - var(--health-bar-padding));
+    border-radius: calc(var(--health-bar-border-radius) - var(--health-bar-padding)) calc(var(--health-bar-border-radius) - var(--health-bar-padding)) 0 0;
     transition: width 0.2s ease-out, background-color 0.3s ease-out;
 }
 
@@ -83,6 +89,50 @@
 .health-bar__fill--critical
 {
     background-color: var(--health-bar-fill-color-critical);
+}
+
+/* ═════ 魔法值条样式 ═════ */
+
+/* 魔法值条背景元素 Element */
+.health-bar__mana-background
+{
+    position: relative;
+    left: 0;
+    width: 100%;
+    height: var(--health-bar-mana-height);
+    background-color: var(--health-bar-bg-color);
+    border-radius: 0 0 var(--health-bar-border-radius) var(--health-bar-border-radius);
+    border-width: 0 var(--health-bar-border-width) var(--health-bar-border-width) var(--health-bar-border-width);
+    border-color: var(--health-bar-border-color);
+    padding: 0 var(--health-bar-padding) var(--health-bar-padding) var(--health-bar-padding);
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-top: var(--health-bar-mana-gap);
+}
+
+/* 魔法值条填充 Element */
+.health-bar__mana-fill
+{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--health-bar-mana-fill-color);
+    border-radius: 0 0 calc(var(--health-bar-border-radius) - var(--health-bar-padding)) calc(var(--health-bar-border-radius) - var(--health-bar-padding));
+    transition: width 0.2s ease-out;
+}
+
+/* 魔法值条平滑动画 */
+.health-bar__mana-fill--smooth
+{
+    transition: width 0.2s ease-out;
+}
+
+/* 魔法值条即时更新（无动画） */
+.health-bar__mana-fill--instant
+{
+    transition: none;
 }
 
 /* 血条文本 Element — 由父级 background 的 flex 布局居中 */

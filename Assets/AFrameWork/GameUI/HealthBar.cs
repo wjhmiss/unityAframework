@@ -24,6 +24,8 @@ namespace AFrameWork.GameUI
         private const string k_healthBarBackground = "health-bar__background";
         private const string k_healthBarFill = "health-bar__fill";
         private const string k_healthBarText = "health-bar__text";
+        private const string k_healthBarManaBackground = "health-bar__mana-background";
+        private const string k_healthBarManaFill = "health-bar__mana-fill";
 
         /// <summary>
         /// USS 类名常量 - 用于状态切换
@@ -36,6 +38,8 @@ namespace AFrameWork.GameUI
         private const string k_fadeOutClass = "health-bar--fade-out";
         private const string k_smoothClass = "health-bar__fill--smooth";
         private const string k_instantClass = "health-bar__fill--instant";
+        private const string k_manaSmoothClass = "health-bar__mana-fill--smooth";
+        private const string k_manaInstantClass = "health-bar__mana-fill--instant";
 
         // ══════════════════════════════════════════════════════════════════════════
         // 字段定义
@@ -67,6 +71,21 @@ namespace AFrameWork.GameUI
         private Label m_textElement;
 
         /// <summary>
+        /// 血条背景 VisualElement（用于设置高度）
+        /// </summary>
+        private VisualElement m_backgroundElement;
+
+        /// <summary>
+        /// 魔法值条背景 VisualElement
+        /// </summary>
+        private VisualElement m_manaBackgroundElement;
+
+        /// <summary>
+        /// 魔法值条填充 VisualElement
+        /// </summary>
+        private VisualElement m_manaFillElement;
+
+        /// <summary>
         /// 血条配置
         /// </summary>
         private HealthBarConfig m_config;
@@ -90,6 +109,21 @@ namespace AFrameWork.GameUI
         /// 最大血量值
         /// </summary>
         private float m_maxHealth;
+
+        /// <summary>
+        /// 当前魔法值
+        /// </summary>
+        private float m_currentMagic;
+
+        /// <summary>
+        /// 最大魔法值
+        /// </summary>
+        private float m_maxMagic;
+
+        /// <summary>
+        /// 显示的魔法值（用于平滑过渡）
+        /// </summary>
+        private float m_displayMagic;
 
         /// <summary>
         /// 显示的目标血量值（用于平滑过渡）
@@ -144,6 +178,11 @@ namespace AFrameWork.GameUI
         /// 获取当前血量百分比
         /// </summary>
         public float HealthPercentage => m_maxHealth > 0 ? m_currentHealth / m_maxHealth : 0f;
+
+        /// <summary>
+        /// 获取当前魔法值百分比
+        /// </summary>
+        public float MagicPercentage => m_maxMagic > 0 ? m_currentMagic / m_maxMagic : 0f;
 
         /// <summary>
         /// 获取血条是否可见
@@ -278,6 +317,35 @@ namespace AFrameWork.GameUI
 
             // 启用平滑过渡动画
             EnableSmoothTransition();
+        }
+
+        /// <summary>
+        /// 初始化魔法值（不触发动画）
+        /// </summary>
+        /// <param name="currentMagic">当前魔法值</param>
+        /// <param name="maxMagic">最大魔法值</param>
+        public void InitializeMagic(float currentMagic, float maxMagic)
+        {
+            m_currentMagic = currentMagic;
+            m_maxMagic = maxMagic;
+            m_displayMagic = currentMagic;
+
+            // 立即更新显示（无动画）
+            UpdateManaFillWidth(true);
+        }
+
+        /// <summary>
+        /// 更新魔法值（带平滑过渡动画）
+        /// </summary>
+        /// <param name="currentMagic">当前魔法值</param>
+        /// <param name="maxMagic">最大魔法值</param>
+        public void UpdateMagic(float currentMagic, float maxMagic)
+        {
+            m_currentMagic = currentMagic;
+            m_maxMagic = maxMagic;
+
+            // 启用魔法值条平滑过渡动画
+            EnableManaSmoothTransition();
         }
 
         /// <summary>
@@ -482,8 +550,11 @@ namespace AFrameWork.GameUI
 #endif
 
             // 查询子元素引用
+            m_backgroundElement = m_healthBarElement.Q<VisualElement>(k_healthBarBackground);
             m_fillElement = m_healthBarElement.Q<VisualElement>(k_healthBarFill);
             m_textElement = m_healthBarElement.Q<Label>(k_healthBarText);
+            m_manaBackgroundElement = m_healthBarElement.Q<VisualElement>(k_healthBarManaBackground);
+            m_manaFillElement = m_healthBarElement.Q<VisualElement>(k_healthBarManaFill);
 
             // 验证元素引用
             if (m_fillElement == null)
@@ -519,8 +590,11 @@ namespace AFrameWork.GameUI
             }
 
             m_healthBarElement = null;
+            m_backgroundElement = null;
             m_fillElement = null;
             m_textElement = null;
+            m_manaBackgroundElement = null;
+            m_manaFillElement = null;
             m_isInitialized = false;
         }
 
@@ -536,7 +610,18 @@ namespace AFrameWork.GameUI
 
             // 应用尺寸
             m_healthBarElement.style.width = m_config.Width;
-            m_healthBarElement.style.height = m_config.Height;
+
+            // 血条背景高度
+            if (m_backgroundElement != null)
+            {
+                m_backgroundElement.style.height = m_config.Height;
+            }
+
+            // 魔法值条背景高度（血条的 40%）
+            if (m_manaBackgroundElement != null)
+            {
+                m_manaBackgroundElement.style.height = m_config.Height * 0.4f;
+            }
 
             // 应用文本显示设置
             if (m_textElement != null)
@@ -645,8 +730,9 @@ namespace AFrameWork.GameUI
             // 上边界裁剪
             position.y = Mathf.Max(position.y, margin);
 
-            // 下边界裁剪
-            position.y = Mathf.Min(position.y, Screen.height - m_config.Height - margin);
+            // 下边界裁剪（血条 + 魔法值条总高度）
+            float totalHeight = m_config.Height * 1.4f + 1f;
+            position.y = Mathf.Min(position.y, Screen.height - totalHeight - margin);
 
             return position;
         }
@@ -722,35 +808,52 @@ namespace AFrameWork.GameUI
         }
 
         /// <summary>
-        /// 更新血条平滑过渡
+        /// 更新血条/魔法值条平滑过渡
         /// </summary>
         private void UpdateSmoothTransition()
         {
-            if (!m_isInitialized || m_fillElement == null)
+            if (!m_isInitialized)
             {
                 return;
             }
 
-            // 检查是否需要平滑过渡
-            float difference = Mathf.Abs(m_displayHealth - m_currentHealth);
-            if (difference < 0.1f)
+            // ── 血量平滑过渡 ──
+            if (m_fillElement != null)
             {
-                // 过渡完成，更新到最终值
-                m_displayHealth = m_currentHealth;
-                UpdateFillWidth(false);
-                UpdateText();
-                UpdateHealthColor();
-                return;
+                float difference = Mathf.Abs(m_displayHealth - m_currentHealth);
+                if (difference < 0.1f)
+                {
+                    m_displayHealth = m_currentHealth;
+                    UpdateFillWidth(false);
+                    UpdateText();
+                    UpdateHealthColor();
+                }
+                else
+                {
+                    float transitionSpeed = Mathf.Abs(m_currentHealth - m_displayHealth) / m_config.SmoothTransitionDuration;
+                    m_displayHealth = Mathf.MoveTowards(m_displayHealth, m_currentHealth, transitionSpeed * m_config.UpdateInterval);
+                    UpdateFillWidth(false);
+                    UpdateText();
+                    UpdateHealthColor();
+                }
             }
 
-            // 平滑过渡
-            float transitionSpeed = Mathf.Abs(m_currentHealth - m_displayHealth) / m_config.SmoothTransitionDuration;
-            m_displayHealth = Mathf.MoveTowards(m_displayHealth, m_currentHealth, transitionSpeed * m_config.UpdateInterval);
-
-            // 更新显示
-            UpdateFillWidth(false);
-            UpdateText();
-            UpdateHealthColor();
+            // ── 魔法值平滑过渡 ──
+            if (m_manaFillElement != null)
+            {
+                float manaDifference = Mathf.Abs(m_displayMagic - m_currentMagic);
+                if (manaDifference < 0.1f)
+                {
+                    m_displayMagic = m_currentMagic;
+                    UpdateManaFillWidth(false);
+                }
+                else
+                {
+                    float manaSpeed = Mathf.Abs(m_currentMagic - m_displayMagic) / m_config.SmoothTransitionDuration;
+                    m_displayMagic = Mathf.MoveTowards(m_displayMagic, m_currentMagic, manaSpeed * m_config.UpdateInterval);
+                    UpdateManaFillWidth(false);
+                }
+            }
         }
 
         /// <summary>
@@ -838,6 +941,48 @@ namespace AFrameWork.GameUI
             // 移除即时更新类，添加平滑动画类
             m_fillElement.RemoveFromClassList(k_instantClass);
             m_fillElement.AddToClassList(k_smoothClass);
+        }
+
+        /// <summary>
+        /// 更新魔法值条填充宽度
+        /// </summary>
+        /// <param name="instant">是否立即更新（无动画）</param>
+        private void UpdateManaFillWidth(bool instant)
+        {
+            if (!m_isInitialized || m_manaFillElement == null)
+            {
+                return;
+            }
+
+            float percentage = m_maxMagic > 0 ? m_displayMagic / m_maxMagic : 0f;
+            percentage = Mathf.Clamp01(percentage);
+
+            m_manaFillElement.style.width = Length.Percent(percentage * 100f);
+
+            if (instant)
+            {
+                m_manaFillElement.RemoveFromClassList(k_manaSmoothClass);
+                m_manaFillElement.AddToClassList(k_manaInstantClass);
+            }
+            else
+            {
+                m_manaFillElement.RemoveFromClassList(k_manaInstantClass);
+                m_manaFillElement.AddToClassList(k_manaSmoothClass);
+            }
+        }
+
+        /// <summary>
+        /// 启用魔法值条平滑过渡动画
+        /// </summary>
+        private void EnableManaSmoothTransition()
+        {
+            if (!m_isInitialized || m_manaFillElement == null)
+            {
+                return;
+            }
+
+            m_manaFillElement.RemoveFromClassList(k_manaInstantClass);
+            m_manaFillElement.AddToClassList(k_manaSmoothClass);
         }
 
         /// <summary>

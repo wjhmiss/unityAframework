@@ -5,5 +5,8 @@
             <ui:VisualElement name="health-bar__fill" class="health-bar__fill" />
             <ui:Label name="health-bar__text" text="100/100" enable-rich-text="true" class="health-bar__text" />
         </ui:VisualElement>
+        <ui:VisualElement name="health-bar__mana-background" class="health-bar__mana-background">
+            <ui:VisualElement name="health-bar__mana-fill" class="health-bar__mana-fill" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

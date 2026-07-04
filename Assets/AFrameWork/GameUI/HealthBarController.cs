@@ -359,6 +359,40 @@ namespace AFrameWork.GameUI
         }
 
         /// <summary>
+        /// 初始化目标对象的魔法值（不触发动画）
+        /// </summary>
+        /// <param name="target">目标 Transform</param>
+        /// <param name="currentMagic">当前魔法值</param>
+        /// <param name="maxMagic">最大魔法值</param>
+        public void InitializeMagic(Transform target, float currentMagic, float maxMagic)
+        {
+            if (target == null || !m_activeHealthBars.ContainsKey(target))
+            {
+                return;
+            }
+
+            HealthBar healthBar = m_activeHealthBars[target];
+            healthBar.InitializeMagic(currentMagic, maxMagic);
+        }
+
+        /// <summary>
+        /// 更新目标对象的魔法值
+        /// </summary>
+        /// <param name="target">目标 Transform</param>
+        /// <param name="currentMagic">当前魔法值</param>
+        /// <param name="maxMagic">最大魔法值</param>
+        public void UpdateMagic(Transform target, float currentMagic, float maxMagic)
+        {
+            if (target == null || !m_activeHealthBars.ContainsKey(target))
+            {
+                return;
+            }
+
+            HealthBar healthBar = m_activeHealthBars[target];
+            healthBar.UpdateMagic(currentMagic, maxMagic);
+        }
+
+        /// <summary>
         /// 显示目标对象的血条
         /// </summary>
         /// <param name="target">目标 Transform</param>

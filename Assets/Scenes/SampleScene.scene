@@ -1481,8 +1481,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c10f6fd12b33dfb4aac151c1a88ec6cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_prefabEntries: []
-  m_maxPoolSize: 300
 --- !u!4 &869335261
 Transform:
   m_ObjectHideFlags: 0
@@ -2242,8 +2240,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78fbb9539144efc4fb661fc7bcc57691, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_canAttack: 1
-  m_useNavMeshAgent: 1
+  m_canAttack: 0
+  m_useNavMeshAgent: 0
   m_healthBarHeadOffset: 2.35
 --- !u!4 &1300880278
 Transform:
