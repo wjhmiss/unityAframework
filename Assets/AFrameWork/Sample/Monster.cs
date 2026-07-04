@@ -243,6 +243,21 @@ namespace AFrameWork.Sample
             }
         }
 
+        /// <summary>
+        /// 注册到 TargetRegistry，供 ProjectileManager 发射子弹时查找目标（方案 D）。
+        /// 必须在 OnDisable 中注销，避免发射器遍历到已禁用的 Monster。
+        /// </summary>
+        private void OnEnable()
+        {
+            TargetRegistry.Register(this);
+        }
+
+        /// <summary>从 TargetRegistry 注销。</summary>
+        private void OnDisable()
+        {
+            TargetRegistry.Unregister(this);
+        }
+
         private async void Start()
         {
             // 异步加载骨骼并初始化 Animator

@@ -58,9 +58,6 @@ namespace AFrameWork.Sample
         // ===== 子弹系统 =====
         // 子弹生成位置（子对象 bulletPos）
         private Transform m_bulletPos;
-        // 子弹预制体
-        [SerializeField]
-        private GameObject m_bulletPrefab;
 
         // ===== 翻滚系统状态字段 =====
         // 当前是否正在翻滚（翻滚期间禁止移动/攻击输入）
@@ -368,15 +365,6 @@ namespace AFrameWork.Sample
 
             // 查找子弹生成位置
             m_bulletPos = transform.Find("bulletPos");
-
-            // 加载子弹预制体（未在 Inspector 中指定时从默认路径加载）
-            if (m_bulletPrefab == null)
-            {
-#if UNITY_EDITOR
-                m_bulletPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
-                    "Assets/AFrameWork/Sample/prefad/bullet.prefab");
-#endif
-            }
         }
 
         /// <summary>
@@ -518,6 +506,13 @@ namespace AFrameWork.Sample
             m_cachedHorizontal = Input.GetAxisRaw("Horizontal");
             m_cachedVertical = Input.GetAxisRaw("Vertical");
 
+            // 子弹输入：Q 键按下时朝最近敌方发射一颗子弹（通过 ProjectileManager 对象池）
+            // 不依赖动画系统，放在动画加载检查之前，确保场景加载初期即可发射
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                FireBullet();
+            }
+
             // 动画未加载完成时跳过动画切换逻辑
             if (m_idleConfig.Clip == null || m_runConfig.Clip == null)
             {
@@ -553,12 +548,6 @@ namespace AFrameWork.Sample
             if (Input.GetMouseButtonDown(0))
             {
                 TryStartAttack();
-            }
-
-            // 子弹输入：Q 键按下时朝 Monster 发射一颗子弹
-            if (Input.GetKeyDown(KeyCode.Q))
-            {
-                FireBullet();
             }
 
             // 攻击期间禁止移动：覆盖 HandleInput 读取的输入，清零水平速度
@@ -765,38 +754,36 @@ namespace AFrameWork.Sample
         }
 
         /// <summary>
-        /// 发射子弹：在 bulletPos 位置生成一颗子弹，朝场景中最近的 Monster 飞行。
+        /// 发射子弹：通过 ProjectileManager 从对象池取一颗子弹，朝最近敌方目标飞行。
+        /// 目标查找使用 TargetRegistry（方案 D），避免 FindObjectOfType 的 O(N) 场景扫描。
+        /// 子弹伤害使用 Fighter 的 PhysicalAttack（方案 A/B/C/E 优化见 ProjectileBase/ProjectileManager）。
         /// </summary>
         private void FireBullet()
         {
-            if (m_bulletPrefab == null || m_bulletPos == null)
-            {
-                return;
-            }
+            if (m_bulletPos == null) return;
 
-            // 查找场景中的 Monster
-            Monster monster = FindObjectOfType<Monster>();
-            if (monster == null)
-            {
-                return;
-            }
+            // 通过 TargetRegistry 查找最近敌方（替代 FindObjectOfType<Monster>）
+            ObjectBase target = TargetRegistry.FindNearest(m_bulletPos.position, this);
+            if (target == null) return;
 
-            // 计算从 bulletPos 到 Monster 的方向（水平面）
-            Vector3 direction = monster.transform.position - m_bulletPos.position;
+            // 计算水平方向
+            Vector3 direction = target.transform.position - m_bulletPos.position;
             direction.y = 0f;
-            if (direction.sqrMagnitude < 0.01f)
+            if (direction.sqrMagnitude < 0.01f) return;
+
+            // 通过 ProjectileManager 发射（对象池复用，无 Instantiate/Destroy）
+            ProjectileManager manager = ProjectileManager.Instance;
+            if (manager == null)
             {
+#if UNITY_EDITOR
+                Debug.LogWarning($"[{GetType().Name}] 场景中未找到 ProjectileManager，子弹发射失败。", this);
+#endif
                 return;
             }
 
-            // 在 bulletPos 位置生成子弹（不作为 bulletPos 的子对象，避免随 Fighter 移动）
-            Quaternion spawnRotation = Quaternion.LookRotation(direction) * Quaternion.Euler(90f, 0f, 0f);
-            GameObject bulletObj = Instantiate(m_bulletPrefab, m_bulletPos.position, spawnRotation);
-            Bullet bullet = bulletObj.GetComponent<Bullet>();
-            if (bullet != null)
-            {
-                bullet.Initialize(this, direction);
-            }
+            // 伤害值取 Fighter 的物理攻击力
+            float damage = HasObjectStats() ? GetObjectStats().PhysicalAttack : 10f;
+            manager.FireBullet(m_bulletPos.position, direction, this, damage, DamageType.Physical);
         }
 
         /// <summary>
