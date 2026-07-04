@@ -34,6 +34,10 @@ namespace AFrameWork.Core.SmallBase
         protected const float k_defaultMaxDistance = 8f;
         protected const float k_defaultMaxDistanceSqr = k_defaultMaxDistance * k_defaultMaxDistance;
 
+        // 最小命中距离：飞出此距离后才可触发命中，防止生成时与碰撞体重叠导致立即回收
+        protected const float k_minHitDistance = 0.5f;
+        protected const float k_minHitDistanceSqr = k_minHitDistance * k_minHitDistance;
+
         #endregion
 
         #region 运行时字段
@@ -188,9 +192,13 @@ namespace AFrameWork.Core.SmallBase
             m_maxDistanceSqr = k_defaultMaxDistanceSqr;
             ConfigureParameters();
 
-            // 应用初速度
+            // 同步 Rigidbody 位置/朝向并应用初速度
+            // 必须显式同步 position/rotation 以清除插值缓冲，
+            // 否则池复用时插值会从旧位置/朝向平滑过渡，导致首帧方向错误（Bug: 子弹头朝上）
             if (m_rigidbody != null)
             {
+                m_rigidbody.position = position;
+                m_rigidbody.rotation = transform.rotation;
                 m_rigidbody.velocity = m_moveDirection * m_speed;
             }
 
@@ -250,7 +258,9 @@ namespace AFrameWork.Core.SmallBase
         protected virtual void OnTriggerEnter(Collider other)
         {
             if (!m_isAlive) return;
-
+            // 防止子弹在生成点附近被立即触发回收（生成点可能与敌方碰撞体重叠）
+            Vector3 travelOffset = transform.position - m_startPosition;
+            if (travelOffset.sqrMagnitude < k_minHitDistanceSqr) return;
             // 使用 TryGetComponent（比 GetComponent + null check 更高效）
             if (!other.TryGetComponent<ObjectBase>(out ObjectBase target)) return;
             if (!target.HasObjectStats()) return;

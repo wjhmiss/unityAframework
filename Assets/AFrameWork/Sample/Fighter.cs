@@ -782,15 +782,6 @@ namespace AFrameWork.Sample
         {
             if (m_bulletPos == null) return;
 
-            // 通过 TargetRegistry 查找最近敌方（替代 FindObjectOfType<Monster>）
-            ObjectBase target = TargetRegistry.FindNearest(m_bulletPos.position, this);
-            if (target == null) return;
-
-            // 计算水平方向
-            Vector3 direction = target.transform.position - m_bulletPos.position;
-            direction.y = 0f;
-            if (direction.sqrMagnitude < 0.01f) return;
-
             // 通过 SimpleObjectPool 发射（对象池复用，无 Instantiate/Destroy）
             SimpleObjectPool pool = SimpleObjectPool.Instance;
             if (pool == null)
@@ -800,6 +791,32 @@ namespace AFrameWork.Sample
 #endif
                 return;
             }
+            if (!pool.IsRegistered<Bullet>()) return;
+
+            // 通过 TargetRegistry 查找最近敌方（替代 FindObjectOfType<Monster>）
+            ObjectBase target = TargetRegistry.FindNearest(m_bulletPos.position, this);
+            Vector3 direction;
+            if (target != null)
+            {
+                Vector3 toTarget = target.transform.position - m_bulletPos.position;
+                toTarget.y = 0f;
+                // 目标超出子弹最大飞行距离时不锁定，朝前方发射
+                if (toTarget.sqrMagnitude <= Bullet.k_maxDistance * Bullet.k_maxDistance)
+                {
+                    direction = toTarget;
+                }
+                else
+                {
+                    direction = new Vector3(transform.forward.x, 0f, transform.forward.z);
+                }
+            }
+            else
+            {
+                // 无目标时朝角色前方发射
+                direction = new Vector3(transform.forward.x, 0f, transform.forward.z);
+            }
+            if (direction.sqrMagnitude < 0.01f) return;
+            direction.Normalize();
 
             // 伤害值取 Fighter 的物理攻击力
             //float damage = HasObjectStats() ? GetObjectStats().PhysicalAttack : 10f;

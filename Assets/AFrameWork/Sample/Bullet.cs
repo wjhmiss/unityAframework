@@ -26,7 +26,7 @@ namespace AFrameWork.Sample
         private const float k_speed = 4f;
 
         // 最大飞行距离（米，超过后回收）
-        private const float k_maxDistance = 8f;
+        public const float k_maxDistance = 8f;
 
         // 最大飞行距离的平方（避免每帧开方）
         private const float k_maxDistanceSqr = k_maxDistance * k_maxDistance;
@@ -48,7 +48,10 @@ namespace AFrameWork.Sample
             {
                 collider = gameObject.AddComponent<SphereCollider>();
             }
-            collider.radius = k_colliderRadius;
+            // 补偿根节点缩放，确保世界空间碰撞体半径为 k_colliderRadius
+            // 否则 scale=6 时世界半径达 1.2m，子弹会在远距离命中敌方导致"突然消失"
+            float maxScale = Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.y), Mathf.Abs(transform.lossyScale.z), 0.0001f);
+            collider.radius = k_colliderRadius / maxScale;
             collider.isTrigger = true;
             m_collider = collider;
         }
