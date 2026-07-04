@@ -618,6 +618,10 @@ namespace AFrameWork.Core
 
             m_movementInput = Vector3.zero;
             m_horizontalVelocity = Vector3.zero;
+            if (m_rigidbody.isKinematic)
+            {
+                return;
+            }
             if (config.IsKeepYVelocity)
             {
                 m_rigidbody.velocity = new Vector3(0f, m_rigidbody.velocity.y, 0f);
@@ -1454,6 +1458,15 @@ namespace AFrameWork.Core
         {
             m_animator = AddObjectComponent<Animator>();
 
+#if UNITY_EDITOR
+            var dummyController = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                "Assets/AFrameWork/EmptyAnimatorController.controller");
+            if (dummyController != null)
+            {
+                m_animator.runtimeAnimatorController = dummyController;
+            }
+#endif
+
             // 创建 PlayableGraph（如果尚未创建）
             EnsurePlayableGraph();
 
@@ -1476,6 +1489,18 @@ namespace AFrameWork.Core
         protected async Task<Animator> SetupAnimatorAsync(string avatarKey)
         {
             m_animator = AddObjectComponent<Animator>();
+
+#if UNITY_EDITOR
+            // Assign a dummy controller to prevent UnityEditor.Graphs null-edge errors.
+            // The PlayableGraph (created below) takes over animation playback at runtime,
+            // so this controller is only needed to keep the editor's internal graph valid.
+            var dummyController = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                "Assets/AFrameWork/EmptyAnimatorController.controller");
+            if (dummyController != null)
+            {
+                m_animator.runtimeAnimatorController = dummyController;
+            }
+#endif
 
             // 通过 Addressables 加载骨骼文件（Avatar）
             if (!string.IsNullOrEmpty(avatarKey))
@@ -1925,16 +1950,22 @@ namespace AFrameWork.Core
                 return cachedHandle.Result as T;
             }
 
-            AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(key);
+            AsyncOperationHandle<T> handle = default;
+            bool handleCreated = false;
             try
             {
+                handle = Addressables.LoadAssetAsync<T>(key);
+                handleCreated = true;
                 // 加载失败时 Task 可能以异常完成，需捕获以保证后续状态检查可达
                 await handle.Task;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Debug.LogError($"[{GetType().Name}] Addressables 加载异常: key='{key}', 错误: {ex.Message}", this);
-                Addressables.Release(handle);
+                if (handleCreated)
+                {
+                    Addressables.Release(handle);
+                }
                 return null;
             }
 
@@ -1972,7 +2003,7 @@ namespace AFrameWork.Core
         private void InitializeAnimationMixer()
         {
             // 创建动画混合器，预分配固定数量的输入端口
-            m_animationMixer = AnimationMixerPlayable.Create(m_playableGraph, k_animationMixerMaxInputs, true);
+            m_animationMixer = AnimationMixerPlayable.Create(m_playableGraph, k_animationMixerMaxInputs);
 
             // 初始化所有 slot 权重为 0（无动画输出）
             for (int i = 0; i < k_animationMixerMaxInputs; i++)

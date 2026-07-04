@@ -112,16 +112,6 @@ namespace AFrameWork.GameUI
         private bool m_isVisible;
 
         /// <summary>
-        /// 是否正在淡入
-        /// </summary>
-        private bool m_isFadingIn;
-
-        /// <summary>
-        /// 是否正在淡出
-        /// </summary>
-        private bool m_isFadingOut;
-
-        /// <summary>
         /// 是否已初始化
         /// </summary>
         private bool m_isInitialized;
@@ -141,10 +131,10 @@ namespace AFrameWork.GameUI
         /// </summary>
         private Collider[] m_targetColliders;
 
-        /// <summary>
-        /// 遮挡检测中自动跳过的 Tag 列表（地面、可穿透平台等不应算作遮挡物）
-        /// </summary>
-        private static readonly string[] k_nonOccludingTags = { "floor", "Floor" };
+        // /// <summary>
+        // /// 遮挡检测中自动跳过的 Tag 列表（地面、可穿透平台等不应算作遮挡物）
+        // /// </summary>
+        // private static readonly string[] k_nonOccludingTags = { "floor", "Floor" };
 
         // ══════════════════════════════════════════════════════════════════════════
         // 属性
@@ -307,8 +297,6 @@ namespace AFrameWork.GameUI
             }
 
             m_isVisible = true;
-            m_isFadingIn = true;
-            m_isFadingOut = false;
 
             // 移除隐藏类
             m_healthBarElement.RemoveFromClassList(k_hiddenClass);
@@ -339,9 +327,6 @@ namespace AFrameWork.GameUI
                 return;
             }
 
-            m_isFadingOut = true;
-            m_isFadingIn = false;
-
             // 添加淡出动画类
             m_healthBarElement.AddToClassList(k_fadeOutClass);
 
@@ -355,8 +340,6 @@ namespace AFrameWork.GameUI
         public void ShowImmediate()
         {
             m_isVisible = true;
-            m_isFadingIn = false;
-            m_isFadingOut = false;
 
             // 检查 UI 元素是否已初始化
             if (m_healthBarElement == null)
@@ -382,8 +365,6 @@ namespace AFrameWork.GameUI
         public void HideImmediate()
         {
             m_isVisible = false;
-            m_isFadingIn = false;
-            m_isFadingOut = false;
 
             // 检查 UI 元素是否已初始化
             if (m_healthBarElement == null)
@@ -672,7 +653,7 @@ namespace AFrameWork.GameUI
 
         /// <summary>
         /// 遮挡检测：从相机向目标方向发射射线，排除目标自身的 Collider。
-        /// 使用 RaycastAll + 显式排除，彻底避免命中自身碰撞体。
+        /// 基于射线是否被阻隔判断可见性，不按 Tag 跳过任何物体。
         /// </summary>
         private void UpdateOcclusion(Vector3 cameraPos, Vector3 targetPos)
         {
@@ -715,17 +696,17 @@ namespace AFrameWork.GameUI
                     if (isOwnCollider) continue;
                 }
 
-                // 跳过地面等非遮挡物（角色站立面不应算作遮挡）
-                bool isNonOccluder = false;
-                for (int j = 0; j < k_nonOccludingTags.Length; j++)
-                {
-                    if (hitCollider.CompareTag(k_nonOccludingTags[j]))
-                    {
-                        isNonOccluder = true;
-                        break;
-                    }
-                }
-                if (isNonOccluder) continue;
+                // // 跳过地面等非遮挡物（角色站立面不应算作遮挡）
+                // bool isNonOccluder = false;
+                // for (int j = 0; j < k_nonOccludingTags.Length; j++)
+                // {
+                //     if (hitCollider.CompareTag(k_nonOccludingTags[j]))
+                //     {
+                //         isNonOccluder = true;
+                //         break;
+                //     }
+                // }
+                // if (isNonOccluder) continue;
 
                 foundOccluder = true;
                 break;
@@ -869,7 +850,6 @@ namespace AFrameWork.GameUI
                 return;
             }
 
-            m_isFadingIn = false;
             m_healthBarElement.RemoveFromClassList(k_fadeInClass);
         }
 
@@ -884,7 +864,6 @@ namespace AFrameWork.GameUI
             }
 
             m_isVisible = false;
-            m_isFadingOut = false;
 
             // 移除淡出类，添加隐藏类
             m_healthBarElement.RemoveFromClassList(k_fadeOutClass);

@@ -65,11 +65,6 @@ namespace AFrameWork.GameUI
         private GameObject m_healthBarPrefab;
 
         /// <summary>
-        /// 是否已初始化
-        /// </summary>
-        private bool m_isInitialized;
-
-        /// <summary>
         /// 血条 UXML 资源引用
         /// </summary>
         [Tooltip("血条 UXML 资源")]
@@ -484,7 +479,6 @@ namespace AFrameWork.GameUI
                 ReturnToPool(healthBarObject);
             }
 
-            m_isInitialized = true;
         }
 
         /// <summary>

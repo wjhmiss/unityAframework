@@ -97,6 +97,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c49d1f1094b8f9f4f94242145bce7ffe
+    m_Address: player_SwingSound
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ddb0c7f6762bb7c429748af022dab4ba
     m_Address: NPC01_WALK
     m_ReadOnly: 0

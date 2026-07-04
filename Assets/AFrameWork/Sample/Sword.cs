@@ -199,20 +199,18 @@ namespace AFrameWork.Sample
         /// </summary>
         private void OnTriggerEnter(Collider other)
         {
-            Debug.Log($"剑命中 {other.name}", this);
+            //Debug.Log($"剑命中 {other.name}", this);
 
             // 非攻击状态不造成伤害
             if (!m_isSwingActive)
             {
                 return;
             }
-            Debug.Log($"1", this);
 
             if (!HasObjectStats())
             {
                 return;
             }
-            Debug.Log($"2", this);
 
             ObjectStatsConfig myStats = GetObjectStats();
 
@@ -221,21 +219,18 @@ namespace AFrameWork.Sample
             {
                 return;
             }
-            Debug.Log($"3", this);
 
             // 获取目标 ObjectBase
             if (!other.TryGetComponent<ObjectBase>(out ObjectBase target))
             {
                 return;
             }
-            Debug.Log($"4", this);
 
             // 不攻击自身持有者
             if (target == m_owner)
             {
                 return;
             }
-            Debug.Log($"5", this);
 
             if (!target.HasObjectStats())
             {
@@ -243,14 +238,12 @@ namespace AFrameWork.Sample
             }
 
             ObjectStatsConfig targetStats = target.GetObjectStats();
-            Debug.Log($"6", this);
 
             // 目标已死亡
             if (targetStats.IsDead())
             {
                 return;
             }
-            Debug.Log($"7", this);
 
             // 同一次挥剑中同一目标只受一次伤害
             int targetInstanceId = target.GetInstanceID();
@@ -258,7 +251,6 @@ namespace AFrameWork.Sample
             {
                 return;
             }
-            Debug.Log($"8", this);
 
             // 阵营关系判定：能否对目标造成伤害
             if (!myStats.CanDealDamageTo(targetStats))
@@ -268,7 +260,6 @@ namespace AFrameWork.Sample
 
             // 使用带倍率的重载计算伤害（含防御减免）
             float damage = myStats.CalculateDamage(targetStats, m_attackMultiplier);
-            Debug.Log($"damage {damage}",  this);
 
             // 暴击判定：使用持有者暴击属性 + 攻击倍率中的暴击率调整
             // CriticalRateMultiplier 为 k_useBase 时使用持有者基础暴击率
