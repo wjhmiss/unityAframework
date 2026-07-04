@@ -22,6 +22,7 @@ namespace AFrameWork.Sample
         // 在 Addressables Groups 窗口中配置这些地址键
         private const string k_avatarKey = "player_Avatar";      // 骨骼资源地址
         private const string k_swingSoundKey = "player_SwingSound"; // 挥剑音效地址
+        private const string k_bulletPrefabKey = "bullet";           // 子弹预制体地址
 
         // ===== 翻滚与受击系统参数 =====
         // 这些是 Fighter 特有的游戏行为参数，不属于通用 AnimationConfig 结构。
@@ -59,6 +60,9 @@ namespace AFrameWork.Sample
         // ===== 子弹系统 =====
         // 子弹生成位置（子对象 bulletPos）
         private Transform m_bulletPos;
+
+        // 子弹池预热数量
+        private const int k_bulletPrewarm = 10;
 
         // ===== 翻滚系统状态字段 =====
         // 当前是否正在翻滚（翻滚期间禁止移动/攻击输入）
@@ -374,6 +378,21 @@ namespace AFrameWork.Sample
         /// </summary>
         private async void Start()
         {
+            // 异步加载子弹预制体并注册到对象池
+            GameObject bulletPrefab = await LoadAssetAsync<GameObject>(k_bulletPrefabKey);
+            if (bulletPrefab != null)
+            {
+                SimpleObjectPool pool = SimpleObjectPool.Instance;
+                if (pool != null && !pool.IsRegistered<Bullet>())
+                {
+                    pool.RegisterPrefab<Bullet>(bulletPrefab, k_bulletPrewarm);
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[{GetType().Name}] 无法加载子弹预制体（Addressables key: {k_bulletPrefabKey}），子弹发射将失败。", this);
+            }
+
             // 异步加载骨骼资源并初始化 Animator（含 PlayableGraph）
             await SetupAnimatorAsync(k_avatarKey);
 
@@ -783,7 +802,8 @@ namespace AFrameWork.Sample
             }
 
             // 伤害值取 Fighter 的物理攻击力
-            float damage = HasObjectStats() ? GetObjectStats().PhysicalAttack : 10f;
+            //float damage = HasObjectStats() ? GetObjectStats().PhysicalAttack : 10f;
+            float damage = 1f;
             pool.Launch<Bullet>(m_bulletPos.position, direction, this, damage, DamageType.Physical);
         }
 
