@@ -410,4 +410,326 @@ namespace AFrameWork.GameUI
             return mesh;
         }
     }
+
+    /// <summary>
+    /// HealthBarGPUInstanced 使用说明：
+    /// ============================================================
+    /// GPU 实例化血条管理器 — 使用 DrawMeshInstancedIndirect 在单次 Draw Call 中渲染上千个血条。
+    /// 适用于大规模战斗场景 (1000+ 角色)，与现有 HealthBarController (UI Toolkit) 可共存。
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【核心特性】
+    /// ════════════════════════════════════════════════════════════
+    ///   - 单次 Draw Call 渲染所有血条（不论数量）
+    ///   - GPU 实例化数据通过 ComputeBuffer 上传（48 bytes/instance）
+    ///   - 视锥裁剪 + 距离 LOD 自动隐藏远处血条
+    ///   - 平滑填充过渡（Mathf.MoveTowards）
+    ///   - 自动颜色切换（正常/低血量/危急）
+    ///   - ID 回收机制，支持动态注册/注销
+    ///   - [DefaultExecutionOrder(10000)] 确保在 Cinemachine Brain 之后执行
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【HealthBarInstance 数据结构（48 bytes，与 shader 严格对应）】
+    /// ════════════════════════════════════════════════════════════
+    ///   position : Vector4
+    ///     - xyz = 世界坐标(含头部偏移)
+    ///     - w = 填充百分比(0-1)
+    ///
+    ///   color : Vector4
+    ///     - rgba 填充颜色
+    ///
+    ///   size : Vector4
+    ///     - x = 宽度, y = 高度, z = 未使用, w = 可见性(1=可见, 0=隐藏)
+    ///
+    ///   注意：结构体布局必须与 shader 中的 CBUFFER 严格对应，
+    ///        否则 GPU 读取数据错位导致血条位置/颜色异常
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【配置字段详解】
+    /// ════════════════════════════════════════════════════════════
+    ///   m_initialCapacity = 2000
+    ///     - 初始容量（预分配数组大小）
+    ///     - 超过容量时自动扩容（ExpandCapacity 翻倍）
+    ///
+    ///   m_barWidth = 5.0f, m_barHeight = 1.0f
+    ///     - 血条尺寸（世界单位）
+    ///     - 注册时作为默认尺寸，可通过 SetSize 运行时修改
+    ///
+    ///   m_maxRenderDistance = 200f
+    ///     - 最大渲染距离（超出此距离的血条自动隐藏）
+    ///     - 使用 sqrMagnitude 比较，避免开方
+    ///
+    ///   m_fillSpeed = 5f
+    ///     - 填充条平滑过渡速度
+    ///     - 使用 Mathf.MoveTowards 实现，非线性插值
+    ///
+    ///   m_normalColor / m_lowColor / m_criticalColor
+    ///     - 血量颜色配置（正常红/低血量橙/危急深红）
+    ///     - UpdateHealth 时根据阈值自动切换
+    ///
+    ///   m_lowThreshold = 0.3f, m_criticalThreshold = 0.1f
+    ///     - 颜色切换阈值（百分比 0-1）
+    ///     - pct &lt;= critical → 危急色，pct &lt;= low → 低血量色，否则正常色
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【GPU 实例数据】
+    /// ════════════════════════════════════════════════════════════
+    ///   m_instanceBuffer : ComputeBuffer
+    ///     - 实例数据缓冲区，容量 = m_capacity，步幅 = 48 bytes
+    ///     - LateUpdate 中 SetData 上传所有实例数据
+    ///     - 扩容时释放重建
+    ///
+    ///   m_argsBuffer : ComputeBuffer（IndirectArguments）
+    ///     - 间接绘制参数缓冲区，5 个 uint
+    ///     - args[0] = 索引数(6，四边形 2 三角形)
+    ///     - args[1] = 实例数(m_count)
+    ///     - 其余为 0
+    ///
+    ///   m_instanceData : HealthBarInstance[]
+    ///     - CPU 侧实例数据数组
+    ///     - LateUpdate 中更新位置/填充/可见性后上传 GPU
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【CPU 侧追踪数据】
+    /// ════════════════════════════════════════════════════════════
+    ///   m_targets : Transform[]
+    ///     - 每个血条绑定的目标 Transform
+    ///     - null 表示回收槽位
+    ///
+    ///   m_headOffsets : float[]
+    ///     - 头部偏移（世界坐标 Y 轴）
+    ///     - 注册时指定，血条显示在目标头顶
+    ///
+    ///   m_currentHealth / m_maxHealth : float[]
+    ///     - 当前/最大血量
+    ///     - UpdateHealth 时更新，用于计算填充百分比
+    ///
+    ///   m_displayFill : float[]
+    ///     - 显示的填充值（平滑过渡用）
+    ///     - LateUpdate 中 Mathf.MoveTowards 趋近目标值
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【ID 回收机制】
+    /// ════════════════════════════════════════════════════════════
+    ///   m_freeIds : Stack&lt;int&gt;
+    ///     - 回收的 ID 栈，Unregister 时 push，Register 时 pop
+    ///     - 避免频繁扩容，初始容量 = m_capacity / 4
+    ///
+    ///   m_count : int
+    ///     - 已分配的 ID 数量（含已回收的）
+    ///     - m_count &gt;= m_capacity 时触发扩容
+    ///
+    ///   m_capacity : int
+    ///     - 当前容量（数组长度）
+    ///     - 扩容时翻倍并重建 ComputeBuffer
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【Unity 生命周期】
+    /// ════════════════════════════════════════════════════════════
+    ///   Awake：
+    ///     - 初始化容量（Mathf.Max(m_initialCapacity, 1)）
+    ///     - 分配所有数组和 ComputeBuffer
+    ///     - 创建四边形 Mesh（CreateQuadMesh）
+    ///     - 加载 HealthBarGPU shader 并创建 Material
+    ///     - 初始化 args buffer
+    ///
+    ///   Start：
+    ///     - 缓存 Camera.main
+    ///     - 为 null 时在 LateUpdate 中延迟绑定
+    ///
+    ///   LateUpdate（[DefaultExecutionOrder(10000)]）：
+    ///     - 通过 [DefaultExecutionOrder(10000)] 确保在 Cinemachine Brain 之后执行
+    ///     - 此时相机 transform 已是最终状态，消除 CPU 裁剪与 GPU UNITY_MATRIX_V 的帧时序错位
+    ///     - 遍历所有实例：
+    ///       1. 跳过回收槽位（m_targets[i] == null）
+    ///       2. 视锥裁剪（相机背面隐藏）
+    ///       3. 距离 LOD（超出 maxRenderDistance 隐藏）
+    ///       4. 更新位置（含头部偏移）
+    ///       5. 平滑填充过渡（Mathf.MoveTowards）
+    ///       6. 标记可见
+    ///     - 上传 GPU 数据（SetData）
+    ///     - 单次 DrawMeshInstancedIndirect 渲染
+    ///
+    ///   OnDestroy：
+    ///     - 释放 ComputeBuffer（instanceBuffer + argsBuffer）
+    ///     - 销毁 Material 和 Mesh
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【公共 API】
+    /// ════════════════════════════════════════════════════════════
+    ///   Register(target, headOffset)：
+    ///     - 注册血条并绑定到目标对象
+    ///     - 返回血条 ID（用于后续更新/注销），-1 表示失败
+    ///     - 优先复用回收的 ID，无可用时分配新 ID（必要时扩容）
+    ///     - 初始化血量为 100/100，填充为 1
+    ///
+    ///   Unregister(id)：
+    ///     - 注销血条（回收 ID 供复用）
+    ///     - 设置 m_targets[id] = null 和 size.w = 0（隐藏）
+    ///     - ID push 到 m_freeIds 栈
+    ///
+    ///   UpdateHealth(id, currentHealth, maxHealth)：
+    ///     - 更新血量值（自动切换颜色）
+    ///     - 根据 pct 自动设置 normal/low/critical 颜色
+    ///     - 平滑过渡在 LateUpdate 中处理
+    ///
+    ///   SetSize(id, width, height)：
+    ///     - 设置血条尺寸（世界单位）
+    ///     - 可用于 Boss 血条放大
+    ///
+    ///   ClearAll()：
+    ///     - 清除所有血条，重置计数和 freeIds
+    ///
+    ///   RegisteredCount / Capacity：查询属性
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【视锥裁剪与距离 LOD】
+    /// ════════════════════════════════════════════════════════════
+    ///   视锥裁剪（相机背面）：
+    ///     - Vector3.Dot(camFwd, toTarget) &lt; 0 → 目标在相机背面
+    ///     - 设置 size.w = 0 隐藏（shader 中根据 size.w 丢弃）
+    ///
+    ///   距离 LOD：
+    ///     - toTarget.sqrMagnitude &gt; maxRenderDistance² → 超出距离
+    ///     - 设置 size.w = 0 隐藏
+    ///     - 使用 sqrMagnitude 避免开方
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【平滑填充过渡】
+    /// ════════════════════════════════════════════════════════════
+    ///   - targetFill = currentHealth / maxHealth（目标填充值）
+    ///   - m_displayFill = Mathf.MoveTowards(m_displayFill, targetFill, fillSpeed × dt)
+    ///   - 使用 MoveTowards 而非 Lerp，确保过渡时间可预测
+    ///   - 过渡结果写入 position.w（shader 中作为填充百分比）
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【扩容机制】
+    /// ════════════════════════════════════════════════════════════
+    ///   ExpandCapacity()：
+    ///     - 新容量 = m_capacity × 2
+    ///     - Array.Resize 扩展所有 CPU 侧数组
+    ///     - 释放旧 ComputeBuffer，创建新 ComputeBuffer
+    ///     - 更新 m_capacity
+    ///     - 注意：扩容时 GPU 数据会丢失，但 LateUpdate 会重新上传
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【四边形 Mesh 创建】
+    /// ════════════════════════════════════════════════════════════
+    ///   CreateQuadMesh()：
+    ///     - 创建 1×1 四边形（4 顶点，2 三角形，6 索引）
+    ///     - 顶点：(-0.5,-0.5), (0.5,-0.5), (0.5,0.5), (-0.5,0.5)
+    ///     - UV：(0,0), (1,0), (1,1), (0,1)
+    ///     - 三角形：0,2,1, 0,3,2（逆时针）
+    ///     - RecalculateBounds 确保包围盒正确
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【性能优化】
+    /// ════════════════════════════════════════════════════════════
+    ///   - 单次 Draw Call 渲染所有血条（DrawMeshInstancedIndirect）
+    ///   - ComputeBuffer 批量上传，避免逐个 SetVector
+    ///   - 视锥裁剪和距离 LOD 减少不必要的实例渲染
+    ///   - 使用 sqrMagnitude 避免开方
+    ///   - [DefaultExecutionOrder(10000)] 消除相机移动时的帧时序错位
+    ///   - ID 回收机制避免频繁扩容
+    ///   - 与 HealthBarController (UI Toolkit) 可共存，按需选择
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【与 HealthBarController 的对比】
+    /// ════════════════════════════════════════════════════════════
+    ///   HealthBarGPUInstanced（本类）：
+    ///     - 渲染方式：DrawMeshInstancedIndirect（GPU 实例化）
+    ///     - 适用场景：1000+ 角色的大规模战斗
+    ///     - 性能：单 Draw Call，CPU 开销低
+    ///     - 限制：无 UI 交互（无法点击），需要自定义 shader
+    ///
+    ///   HealthBarController（UI Toolkit）：
+    ///     - 渲染方式：UI Toolkit VisualElement
+    ///     - 适用场景：少量角色（&lt;100），需要 UI 交互
+    ///     - 性能：每个血条一个 VisualElement，1000+ 时性能下降
+    ///     - 优势：支持 USS 样式、动画、交互
+    ///
+    /// ────────────────────────────────────────────────────────────
+    /// 示例 1：基本设置
+    /// ────────────────────────────────────────────────────────────
+    /// <code>
+    /// // 1. 场景中创建 GameObject 挂载 HealthBarGPUInstanced
+    /// // 2. Inspector 中配置参数（容量、尺寸、颜色等）
+    /// // 3. 确保有 "AFrameWork/GameUI/HealthBarGPU" shader
+    /// // 4. 注册血条：
+    /// HealthBarGPUInstanced manager = FindObjectOfType&lt;HealthBarGPUInstanced&gt;();
+    /// int id = manager.Register(targetTransform, headOffset: 2f);
+    /// </code>
+    ///
+    /// ────────────────────────────────────────────────────────────
+    /// 示例 2：在 Monster 中集成
+    /// ────────────────────────────────────────────────────────────
+    /// <code>
+    /// public class Monster : ObjectBase
+    /// {
+    ///     private HealthBarGPUInstanced m_gpuHealthBarManager;
+    ///     private int m_gpuHealthBarId = -1;
+    ///
+    ///     private void InitializeHealthBar()
+    ///     {
+    ///         m_gpuHealthBarManager = FindObjectOfType&lt;HealthBarGPUInstanced&gt;();
+    ///         if (m_gpuHealthBarManager == null) return;
+    ///
+    ///         m_gpuHealthBarId = m_gpuHealthBarManager.Register(transform, 3.0f);
+    ///         if (m_gpuHealthBarId &gt;= 0)
+    ///         {
+    ///             m_gpuHealthBarManager.UpdateHealth(m_gpuHealthBarId, GetCurrentHealth(), GetMaxHealth());
+    ///         }
+    ///     }
+    ///
+    ///     protected override void OnDamaged(float damage)
+    ///     {
+    ///         if (m_gpuHealthBarId &gt;= 0 &amp;&amp; m_gpuHealthBarManager != null)
+    ///         {
+    ///             m_gpuHealthBarManager.UpdateHealth(m_gpuHealthBarId, GetCurrentHealth(), GetMaxHealth());
+    ///         }
+    ///     }
+    ///
+    ///     protected override void OnDeath()
+    ///     {
+    ///         if (m_gpuHealthBarId &gt;= 0 &amp;&amp; m_gpuHealthBarManager != null)
+    ///         {
+    ///             m_gpuHealthBarManager.Unregister(m_gpuHealthBarId);
+    ///             m_gpuHealthBarId = -1;
+    ///         }
+    ///     }
+    /// }
+    /// </code>
+    ///
+    /// ────────────────────────────────────────────────────────────
+    /// 示例 3：Boss 血条放大
+    /// ────────────────────────────────────────────────────────────
+    /// <code>
+    /// // Boss 使用更大的血条
+    /// int bossId = manager.Register(bossTransform, headOffset: 5f);
+    /// manager.SetSize(bossId, width: 15f, height: 2f);
+    /// </code>
+    ///
+    /// ────────────────────────────────────────────────────────────
+    /// 示例 4：场景切换清理
+    /// ────────────────────────────────────────────────────────────
+    /// <code>
+    /// // 场景切换时清除所有血条
+    /// HealthBarGPUInstanced manager = FindObjectOfType&lt;HealthBarGPUInstanced&gt;();
+    /// if (manager != null)
+    /// {
+    ///     manager.ClearAll();
+    /// }
+    /// </code>
+    ///
+    /// ────────────────────────────────────────────────────────────
+    /// 示例 5：查询状态
+    /// ────────────────────────────────────────────────────────────
+    /// <code>
+    /// // 当前注册的血条数量（含回收槽位）
+    /// int registeredCount = manager.RegisteredCount;
+    ///
+    /// // 当前容量
+    /// int capacity = manager.Capacity;
+    /// </code>
+    /// </summary>
 }
