@@ -480,9 +480,15 @@ namespace AFrameWork.Sample
                 return;
             }
 
-            // 使用大型血条配置（适合玩家角色，含文本显示）
+            // 使用角色血条配置（适合玩家角色，含文本显示）
             m_healthBar = m_healthBarController.CreateHealthBar(
-                transform, HealthBarConfig.CreateCompact(), m_healthBarHeadOffset);
+                transform, new HealthBarConfig(
+                width: 30f,
+                height: 6f,
+                offsetY: -15f,
+                showText: true,
+                fontSize: 4f,
+                showCurrentOnly: true), m_healthBarHeadOffset);
 
             if (m_healthBar == null)
             {

@@ -634,6 +634,12 @@ namespace AFrameWork.GameUI
                 {
                     m_textElement.AddToClassList(k_textHiddenClass);
                 }
+
+                // 应用自定义字体大小（0 = 使用 USS 默认值）
+                if (m_config.FontSize > 0f)
+                {
+                    m_textElement.style.fontSize = m_config.FontSize;
+                }
             }
         }
 
@@ -898,7 +904,14 @@ namespace AFrameWork.GameUI
             }
 
             // 更新文本内容
-            m_textElement.text = $"{Mathf.RoundToInt(m_displayHealth)}/{Mathf.RoundToInt(m_maxHealth)}";
+            if (m_config.ShowCurrentOnly)
+            {
+                m_textElement.text = $"{Mathf.RoundToInt(m_displayHealth)}";
+            }
+            else
+            {
+                m_textElement.text = $"{Mathf.RoundToInt(m_displayHealth)}/{Mathf.RoundToInt(m_maxHealth)}";
+            }
         }
 
         /// <summary>

@@ -102,6 +102,18 @@ namespace AFrameWork.GameUI
         [Range(0.0f, 1.0f)]
         public float OccludedAlpha;
 
+        /// <summary>
+        /// 血条数值文本的字体大小（像素，0 = 使用 USS 默认值）
+        /// </summary>
+        [Tooltip("血条数值文本的字体大小（像素，0 = 使用 USS 默认值）")]
+        public float FontSize;
+
+        /// <summary>
+        /// 是否只显示当前血量（不显示最大血量，适合短血条）
+        /// </summary>
+        [Tooltip("是否只显示当前血量（不显示最大血量，适合短血条）")]
+        public bool ShowCurrentOnly;
+
         // ══════════════════════════════════════════════════════════════════════════
         // 常量定义
         // ══════════════════════════════════════════════════════════════════════════
@@ -166,6 +178,16 @@ namespace AFrameWork.GameUI
         /// </summary>
         private const float k_defaultOccludedAlpha = 0.3f;
 
+        /// <summary>
+        /// 默认字体大小（0 = 使用 USS 默认值）
+        /// </summary>
+        private const float k_defaultFontSize = 0f;
+
+        /// <summary>
+        /// 默认是否只显示当前血量
+        /// </summary>
+        private const bool k_defaultShowCurrentOnly = false;
+
         // ══════════════════════════════════════════════════════════════════════════
         // 构造方法（C# 9.0 允许带默认参数的构造函数）
         // ══════════════════════════════════════════════════════════════════════════
@@ -198,7 +220,9 @@ namespace AFrameWork.GameUI
             float screenClipMargin = k_defaultScreenClipMargin,
             bool enableOcclusionCheck = k_defaultEnableOcclusionCheck,
             LayerMask occlusionLayerMask = default,
-            float occludedAlpha = k_defaultOccludedAlpha)
+            float occludedAlpha = k_defaultOccludedAlpha,
+            float fontSize = k_defaultFontSize,
+            bool showCurrentOnly = k_defaultShowCurrentOnly)
         {
             Width = width;
             Height = height;
@@ -214,6 +238,8 @@ namespace AFrameWork.GameUI
             EnableOcclusionCheck = enableOcclusionCheck;
             OcclusionLayerMask = occlusionLayerMask;
             OccludedAlpha = occludedAlpha;
+            FontSize = fontSize;
+            ShowCurrentOnly = showCurrentOnly;
         }
 
         // ══════════════════════════════════════════════════════════════════════════

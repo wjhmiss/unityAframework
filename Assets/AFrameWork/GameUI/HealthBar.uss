@@ -1,32 +1,23 @@
-/* ══════════════════════════════════════════════════════════════════════════
-   血条样式文件 - HealthBar.uss
-   使用 BEM 命名规范，支持不同分辨率和屏幕比例
-   ══════════════════════════════════════════════════════════════════════════ */
-
-/* 定义设计变量 - 便于全局调整 */
-:root
-{
+:root {
     --health-bar-width: 100px;
     --health-bar-height: 12px;
     --health-bar-offset-y: -20px;
     --health-bar-bg-color: rgba(0, 0, 0, 0.7);
-    --health-bar-fill-color: rgba(220, 50, 50, 1.0);
-    --health-bar-fill-color-low: rgba(255, 165, 0, 1.0);
-    --health-bar-fill-color-critical: rgba(255, 0, 0, 1.0);
+    --health-bar-fill-color: rgb(220, 50, 50);
+    --health-bar-fill-color-low: rgb(255, 165, 0);
+    --health-bar-fill-color-critical: rgb(255, 0, 0);
     --health-bar-border-radius: 3px;
     --health-bar-border-width: 1px;
     --health-bar-border-color: rgba(0, 0, 0, 0.5);
-    --health-bar-text-color: rgba(255, 255, 255, 1.0);
+    --health-bar-text-color: rgb(255, 255, 255);
     --health-bar-text-size: 10px;
     --health-bar-padding: 2px;
     --health-bar-mana-height: 5px;
-    --health-bar-mana-fill-color: rgba(50, 100, 255, 1.0);
-    --health-bar-mana-gap: 0px;
+    --health-bar-mana-fill-color: rgb(50, 100, 255);
+    --health-bar-mana-gap: 0;
 }
 
-/* 血条容器 Block */
-.health-bar
-{
+.health-bar {
     width: var(--health-bar-width);
     position: absolute;
     left: 0;
@@ -39,16 +30,12 @@
     flex-shrink: 0;
 }
 
-/* 血条隐藏状态 Modifier */
-.health-bar--hidden
-{
+.health-bar--hidden {
     opacity: 0;
     pointer-events: none;
 }
 
-/* 血条背景元素 Element */
-.health-bar__background
-{
+.health-bar__background {
     position: relative;
     left: 0;
     top: 0;
@@ -58,7 +45,7 @@
     border-radius: var(--health-bar-border-radius) var(--health-bar-border-radius) 0 0;
     border-width: var(--health-bar-border-width) var(--health-bar-border-width) 0 var(--health-bar-border-width);
     border-color: var(--health-bar-border-color);
-    padding: var(--health-bar-padding) var(--health-bar-padding) 0 var(--health-bar-padding);
+    padding: 0 var(--health-bar-padding);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -66,36 +53,26 @@
     flex-shrink: 0;
 }
 
-/* 血条填充条 Element */
-.health-bar__fill
-{
+.health-bar__fill {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
     background-color: var(--health-bar-fill-color);
-    border-radius: calc(var(--health-bar-border-radius) - var(--health-bar-padding)) calc(var(--health-bar-border-radius) - var(--health-bar-padding)) 0 0;
+    border-radius: 0 0;
     transition: width 0.2s ease-out, background-color 0.3s ease-out;
 }
 
-/* 血条低血量状态 Modifier */
-.health-bar__fill--low
-{
+.health-bar__fill--low {
     background-color: var(--health-bar-fill-color-low);
 }
 
-/* 血条危急血量状态 Modifier */
-.health-bar__fill--critical
-{
+.health-bar__fill--critical {
     background-color: var(--health-bar-fill-color-critical);
 }
 
-/* ═════ 魔法值条样式 ═════ */
-
-/* 魔法值条背景元素 Element */
-.health-bar__mana-background
-{
+.health-bar__mana-background {
     position: relative;
     left: 0;
     width: 100%;
@@ -110,34 +87,26 @@
     margin-top: var(--health-bar-mana-gap);
 }
 
-/* 魔法值条填充 Element */
-.health-bar__mana-fill
-{
+.health-bar__mana-fill {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
     background-color: var(--health-bar-mana-fill-color);
-    border-radius: 0 0 calc(var(--health-bar-border-radius) - var(--health-bar-padding)) calc(var(--health-bar-border-radius) - var(--health-bar-padding));
+    border-radius: 0 0;
     transition: width 0.2s ease-out;
 }
 
-/* 魔法值条平滑动画 */
-.health-bar__mana-fill--smooth
-{
+.health-bar__mana-fill--smooth {
     transition: width 0.2s ease-out;
 }
 
-/* 魔法值条即时更新（无动画） */
-.health-bar__mana-fill--instant
-{
+.health-bar__mana-fill--instant {
     transition: none;
 }
 
-/* 血条文本 Element — 由父级 background 的 flex 布局居中 */
-.health-bar__text
-{
+.health-bar__text {
     margin: 0;
     padding: 0;
     color: var(--health-bar-text-color);
@@ -147,33 +116,24 @@
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* 血条文本隐藏状态 Modifier */
-.health-bar__text--hidden
-{
+.health-bar__text--hidden {
     display: none;
 }
 
-/* 血条过渡动画 */
-.health-bar--fade-in
-{
+.health-bar--fade-in {
     opacity: 0;
     transition: opacity 0.3s ease-in;
 }
 
-.health-bar--fade-out
-{
+.health-bar--fade-out {
     opacity: 0;
     transition: opacity 0.3s ease-out;
 }
 
-/* 血条平滑动画 */
-.health-bar__fill--smooth
-{
+.health-bar__fill--smooth {
     transition: width 0.2s ease-out, background-color 0.3s ease-out;
 }
 
-/* 血条即时更新（无动画） */
-.health-bar__fill--instant
-{
+.health-bar__fill--instant {
     transition: none;
 }
