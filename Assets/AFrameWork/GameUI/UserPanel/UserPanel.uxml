@@ -1,0 +1,118 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="user-panel" class="user-panel">
+        <ui:VisualElement class="user-panel__header">
+            <ui:Label name="user-panel__title" text="战士" class="user-panel__title" />
+            <ui:Label name="user-panel__level" text="Lv.1" class="user-panel__level" />
+        </ui:VisualElement>
+        <ui:VisualElement class="user-panel__body">
+            <ui:VisualElement class="user-panel__section">
+                <ui:Label text="资源" class="user-panel__section-title" />
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="生命" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__hp" text="100/100" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="魔法" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__mp" text="80/80" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="生命回复" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__hp-regen" text="2" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="魔法回复" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__mp-regen" text="3" class="user-panel__row-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="user-panel__section">
+                <ui:Label text="攻击" class="user-panel__section-title" />
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="物理攻击" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__phys-atk" text="25" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="魔法攻击" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__magic-atk" text="10" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="真实伤害" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__true-dmg" text="5" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="攻击速度" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__atk-speed" text="1.5" class="user-panel__row-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="user-panel__section">
+                <ui:Label text="防御" class="user-panel__section-title" />
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="物理防御" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__phys-def" text="15" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="魔法防御" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__magic-def" text="12" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="闪避率" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__evasion" text="5%" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="命中率" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__hit-rate" text="95%" class="user-panel__row-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="user-panel__section">
+                <ui:Label text="暴击" class="user-panel__section-title" />
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="暴击率" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__crit-rate" text="20%" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="暴击伤害" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__crit-dmg" text="250%" class="user-panel__row-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="user-panel__section">
+                <ui:Label text="穿透" class="user-panel__section-title" />
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="护甲穿透" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__armor-pen" text="15%" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="魔法穿透" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__magic-pen" text="10%" class="user-panel__row-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="user-panel__section">
+                <ui:Label text="其他" class="user-panel__section-title" />
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="移动速度" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__move-speed" text="6" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="施法速度" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__cast-speed" text="1.2" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="冷却缩减" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__cdr" text="10%" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="攻击范围" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__atk-range" text="3" class="user-panel__row-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="user-panel__row">
+                    <ui:Label text="视野范围" class="user-panel__row-label" />
+                    <ui:Label name="user-panel__vision-range" text="12" class="user-panel__row-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="user-panel__footer">
+            <ui:Label text="金币" class="user-panel__footer-label" />
+            <ui:Label name="user-panel__gold" text="0" class="user-panel__footer-value" />
+            <ui:Label text="经验" class="user-panel__footer-label" />
+            <ui:Label name="user-panel__exp" text="0" class="user-panel__footer-value" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
