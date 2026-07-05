@@ -31,24 +31,7 @@ namespace AFrameWork.Sample
         /// 物体属性配置，包含剑的攻击属性
         /// 阵营/队伍/公会/PVP 信息在 Start 中从父级继承
         /// </summary>
-        protected override ObjectStatsConfig ObjectStatsConfig => new ObjectStatsConfig
-        {
-            // 基础属性
-            Type = ObjectType.Weapon,
-            FactionID = 0,              // Start 中由持有者覆盖
-            MaxHealth = 100f,
-            CurrentHealth = 100f,
-            PhysicalAttack = 20f,       // 剑的基础物理攻击
-            PhysicalDefense = 0f,
-            MagicAttack = 0f,
-            MagicDefense = 0f,
-
-            // 伤害配置属性
-            BaseDamage = 15f,
-            DamageType = DamageType.Physical,
-            AttackRange = 1.5f,         // 剑的攻击范围
-            CanDealDamage = true
-        };
+        protected override ObjectStatsConfig ObjectStatsConfig => ObjectStatsConfig.CreateSword();
 
         #endregion
 
@@ -138,12 +121,8 @@ namespace AFrameWork.Sample
             m_ownerStats = m_owner.GetObjectStats();
             ObjectStatsConfig myStats = GetObjectStats();
 
-            // 继承父级的阵营关系判定字段
-            myStats.FactionID = m_ownerStats.FactionID;
-            myStats.TeamID = m_ownerStats.TeamID;
-            myStats.GuildID = m_ownerStats.GuildID;
-            myStats.AllianceID = m_ownerStats.AllianceID;
-            myStats.CurrentPVPMode = m_ownerStats.CurrentPVPMode;
+            // 继承父级的阵营关系判定字段（统一通过 InheritFactionFrom 处理）
+            myStats.InheritFactionFrom(m_ownerStats);
         }
 
         /// <summary>
@@ -258,32 +237,18 @@ namespace AFrameWork.Sample
                 return;
             }
 
-            // 使用带倍率的重载计算伤害（含防御减免）
-            float damage = myStats.CalculateDamage(targetStats, m_attackMultiplier);
+            // 累加武器 + 持有者属性 → 计算伤害（不扣血）
+            // CalculateAttack 是唯一伤害计算入口，与 TakeDamage 分离避免重复扣血
+            float damage = ObjectStatsConfig.CalculateAttack(
+                m_attackMultiplier, targetStats, myStats, m_ownerStats);
 
-            // 暴击判定：使用持有者暴击属性 + 攻击倍率中的暴击率调整
-            // CriticalRateMultiplier 为 k_useBase 时使用持有者基础暴击率
-            float effectiveCritRate = (m_ownerStats != null)
-                ? ObjectStatsConfigMultiplier.Apply(m_ownerStats.CriticalRate, m_attackMultiplier.CriticalRateMultiplier)
-                : 0f;
-            bool isCritical = UnityEngine.Random.value < effectiveCritRate;
-
-            if (isCritical)
-            {
-                // 暴击伤害倍率也受攻击参数调整
-                float effectiveCritMultiplier = (m_ownerStats != null)
-                    ? ObjectStatsConfigMultiplier.Apply(m_ownerStats.CriticalDamageMultiplier, m_attackMultiplier.CriticalDamageMultiplier)
-                    : 2.0f;
-                damage *= effectiveCritMultiplier;
-            }
-
-            // 造成伤害
+            // 经 ObjectBase.TakeDamage 应用：保留无敌检查（翻滚免疫）/OnDamaged 回调/OnDeath 处理
             target.TakeDamage(damage);
+
             m_hitTargetIds.Add(targetInstanceId);
 
 #if UNITY_EDITOR
-            // string critText = isCritical ? "（暴击）" : "";
-            // Debug.Log($"剑命中 {target.name}，造成 {damage:F1} 点伤害{critText}", this);
+            // Debug.Log($"剑命中 {target.name}", this);
 #endif
         }
 
@@ -374,9 +339,9 @@ namespace AFrameWork.Sample
     ///   示例：CriticalRateMultiplier = 0.5，基础 CriticalRate = 0.1 → 实际暴击率 = 0.05
     ///
     ///   Fighter 三段攻击的倍率配置：
-    ///     k_attack01：baseDamageMultiplier = 1.0（基础伤害）
-    ///     k_attack02：baseDamageMultiplier = 1.2（伤害提升 20%）
-    ///     k_attack03：baseDamageMultiplier = 1.5, criticalRateMultiplier = 3.0,
+    ///     k_attack01：physicalAttackMultiplier = 1.0（基础伤害）
+    ///     k_attack02：physicalAttackMultiplier = 1.2（伤害提升 20%）
+    ///     k_attack03：physicalAttackMultiplier = 1.5, criticalRateMultiplier = 3.0,
     ///                criticalDamageMultiplier = 1.5（终结技，高伤害高暴击）
     ///
     ///   Apply(value, multiplier) 计算规则：
@@ -462,12 +427,12 @@ namespace AFrameWork.Sample
     ///     7. targetStats.IsDead() 检查，已死亡目标不造成伤害
     ///     8. m_hitTargetIds.Contains(targetInstanceId) 检查，同次挥剑已命中则跳过
     ///     9. myStats.CanDealDamageTo(targetStats) 阵营关系判定，敌对才造成伤害
-    ///     10. damage = myStats.CalculateDamage(targetStats, m_attackMultiplier)
-    ///         —— 计算伤害（含防御减免、穿透、倍率）
-    ///     11. 暴击判定（详见下方【暴击计算流程】）
-    ///     12. target.TakeDamage(damage) 造成伤害
-    ///     13. m_hitTargetIds.Add(targetInstanceId) 记录命中
-    ///     14. #if UNITY_EDITOR 输出命中日志
+    ///     10. ObjectStatsConfig.CalculateAttack(m_attackMultiplier, targetStats, myStats, m_ownerStats)
+    ///         —— 累加武器+持有者属性，计算伤害（含闪避、防御减免、穿透、暴击，不扣血）
+    ///     11. target.TakeDamage(damage) 应用伤害
+    ///         —— 经 ObjectBase.TakeDamage：保留无敌检查（翻滚免疫）/OnDamaged/OnDeath
+    ///     12. m_hitTargetIds.Add(targetInstanceId) 记录命中
+    ///     13. #if UNITY_EDITOR 输出命中日志
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【暴击计算流程】
@@ -508,17 +473,16 @@ namespace AFrameWork.Sample
     ///       Type = ObjectType.Weapon（武器类型）
     ///       FactionID = 0（Start 中由持有者覆盖）
     ///       MaxHealth = CurrentHealth = 100f（武器耐久度）
-    ///       PhysicalAttack = 20f（剑的基础物理攻击）
+    ///       PhysicalAttack = 5f（剑的基础物理攻击）
     ///       PhysicalDefense = 0f, MagicAttack = 0f, MagicDefense = 0f
     ///     伤害配置：
-    ///       BaseDamage = 15f（基础伤害）
-    ///       DamageType = DamageType.Physical（物理伤害）
     ///       AttackRange = 1.5f（剑的攻击范围）
     ///       CanDealDamage = true（启用伤害判定）
     ///
-    ///   注意：武器的 PhysicalAttack 仅作为 CalculateDamage 的攻击力来源
-    ///        实际伤害 = (BaseDamage + PhysicalAttack) × (1 - 目标防御减免)
-    ///        暴击属性（CriticalRate/CriticalDamageMultiplier）使用持有者的，而非武器自身
+    ///   注意：CalculateAttack 内部累加武器 + 持有者所有属性后统一计算
+    ///        实际伤害 = (武器PhysicalAttack + 持有者PhysicalAttack) × (100 / (100 + 目标有效防御))
+    ///        暴击属性（CriticalRate/CriticalDamageMultiplier）也是武器 + 持有者相加
+    ///        计算结果通过 ObjectBase.TakeDamage 应用（保留无敌/回调/死亡处理）
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【性能优化】

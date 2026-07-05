@@ -101,7 +101,7 @@ namespace AFrameWork.Sample
         private static readonly AnimationConfig k_attack01 = new AnimationConfig
         {
             ClipKey = "player_Attack01",
-            Multiplier = new ObjectStatsConfigMultiplier(baseDamageMultiplier: 1.0f),
+            Multiplier = new ObjectStatsConfigMultiplier(physicalAttackMultiplier: 1.0f),
             FrameEvents = new FrameEventConfig[]
             {
                 // 0.2秒时播放刀光特效（Target 在 SetupComponents 中赋值为 Blade01）
@@ -115,7 +115,7 @@ namespace AFrameWork.Sample
         private static readonly AnimationConfig k_attack02 = new AnimationConfig
         {
             ClipKey = "player_Attack02",
-            Multiplier = new ObjectStatsConfigMultiplier(baseDamageMultiplier: 1.2f),
+            Multiplier = new ObjectStatsConfigMultiplier(physicalAttackMultiplier: 1.2f),
             FrameEvents = new FrameEventConfig[]
             {
                 new FrameEventConfig
@@ -132,7 +132,7 @@ namespace AFrameWork.Sample
             ClipKey = "player_Attack03",
             Multiplier = new ObjectStatsConfigMultiplier
             (
-                baseDamageMultiplier: 1.5f,
+                physicalAttackMultiplier: 1.5f,
                 criticalRateMultiplier: 3.0f,
                 criticalDamageMultiplier: 1.5f
             ),
@@ -229,48 +229,7 @@ namespace AFrameWork.Sample
         /// <summary>
         /// 物体属性配置，包含角色所有数值属性
         /// </summary>
-        protected override ObjectStatsConfig ObjectStatsConfig => new ObjectStatsConfig
-        {
-            // 基础属性
-            Type = ObjectType.Warrior,
-            FactionID = 1,               // 玩家阵营
-            MaxHealth = 100f,
-            CurrentHealth = 100f,
-            PhysicalAttack = 25f,
-            PhysicalDefense = 15f,
-            TrueDamage = 5f,
-            MagicAttack = 10f,
-            MagicDefense = 12f,
-
-            // 速度属性
-            MoveSpeed = 6f,
-            AttackSpeed = 1.5f,
-            CastSpeed = 1.2f,
-
-            // 暴击属性
-            CriticalRate = 0.2f,
-            CriticalDamageMultiplier = 2.5f,
-
-            // 穿透属性
-            ArmorPenetration = 0.15f,
-            MagicPenetration = 0.1f,
-
-            // 恢复属性
-            HealthRegeneration = 2f,
-            ManaRegeneration = 3f,
-
-            // 特殊属性
-            MaxMana = 80f,
-            CurrentMana = 80f,
-            CooldownReduction = 0.1f,
-            EvasionRate = 0.05f,
-            HitRate = 0.95f,
-            AttackRange = 3f,
-            VisionRange = 12f,
-            Experience = 0f,
-            Level = 1,
-            Gold = 0
-        };
+        protected override ObjectStatsConfig ObjectStatsConfig => ObjectStatsConfig.CreateFighter();
 
         #endregion
 
@@ -830,10 +789,9 @@ namespace AFrameWork.Sample
             if (direction.sqrMagnitude < 0.01f) return;
             direction.Normalize();
 
-            // 伤害值取 Fighter 的物理攻击力
-            //float damage = HasObjectStats() ? GetObjectStats().PhysicalAttack : 10f;
-            float damage = 1f;
-            pool.Launch<Bullet>(m_bulletPos.position, direction, this, damage, DamageType.Physical);
+            // 伤害由 owner 的 ObjectStatsConfig 自动克隆为快照，命中时走完整伤害公式
+            // （暴击/闪避/穿透/防御减免），无需调用方传入 damage/damageType
+            pool.Launch<Bullet>(m_bulletPos.position, direction, this);
         }
 
         /// <summary>
@@ -1110,9 +1068,9 @@ namespace AFrameWork.Sample
     ///   动画配置（static readonly 模板，运行时克隆独立副本）：
     ///     k_idle — 待机动画（ClipKey="player_Idel"，无帧事件，PlayAnimation 时 loop:true）
     ///     k_run  — 奔跑动画（ClipKey="player_Run"，无帧事件，PlayAnimation 时 loop:true）
-    ///     k_attack01 — 攻击1（baseDamageMultiplier=1.0，1 个帧事件：0.2s 播放刀光特效）
-    ///     k_attack02 — 攻击2（baseDamageMultiplier=1.2，1 个帧事件：0.2s 播放刀光特效）
-    ///     k_attack03 — 攻击3（baseDamage×1.5, 暴击率×3.0, 暴击伤害×1.5，3 个帧事件）
+    ///     k_attack01 — 攻击1（physicalAttackMultiplier=1.0，1 个帧事件：0.2s 播放刀光特效）
+    ///     k_attack02 — 攻击2（physicalAttackMultiplier=1.2，1 个帧事件：0.2s 播放刀光特效）
+    ///     k_attack03 — 攻击3（physicalAttack×1.5, 暴击率×3.0, 暴击伤害×1.5，3 个帧事件）
     ///     k_hurt  — 受击动画（ClipKey="player_Hurt"，无帧事件，PlayAnimation 时 loop:false）
     ///     k_roll  — 翻滚动画（ClipKey="player_Roll"，无帧事件，PlayAnimation 时 loop:false）
     ///     m_idleConfig / m_runConfig / m_hurtConfig / m_rollConfig —
@@ -1162,15 +1120,15 @@ namespace AFrameWork.Sample
     /// 【攻击动画差异化设计】
     /// ════════════════════════════════════════════════════════════
     ///   k_attack01（基础攻击）：
-    ///     Multiplier: baseDamageMultiplier=1.0f（基础伤害）
+    ///     Multiplier: physicalAttackMultiplier=1.0f（基础伤害）
     ///     FrameEvents: [0.2s PlayParticleSystem]（播放 Blade01 刀光特效）
     ///
     ///   k_attack02（强化攻击）：
-    ///     Multiplier: baseDamageMultiplier=1.2f（伤害 +20%）
+    ///     Multiplier: physicalAttackMultiplier=1.2f（伤害 +20%）
     ///     FrameEvents: [0.2s PlayParticleSystem]（播放 Blade02 刀光特效）
     ///
     ///   k_attack03（终极攻击，演示多帧事件组合）：
-    ///     Multiplier: baseDamage×1.5, 暴击率×3.0, 暴击伤害×1.5
+    ///     Multiplier: physicalAttack×1.5, 暴击率×3.0, 暴击伤害×1.5
     ///     FrameEvents:
     ///       [0.1s PlayAudioClip, volume=0.8] — 播放挥剑音效
     ///       [0.2s PlayParticleSystem]        — 播放 Blade03 刀光特效

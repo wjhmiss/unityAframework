@@ -18,28 +18,7 @@ namespace AFrameWork.Sample
         /// <summary>
         /// 物体属性配置，包含火球的攻击属性和伤害配置
         /// </summary>
-        protected override ObjectStatsConfig ObjectStatsConfig => new ObjectStatsConfig
-        {
-            // 基础属性
-            Type = ObjectType.Projectile,
-            FactionID = 100,              // 中立阵营
-            MaxHealth = 1f,
-            CurrentHealth = 1f,
-            PhysicalAttack = 0f,
-            PhysicalDefense = 0f,
-            MagicAttack = 15f,
-            MagicDefense = 0f,
-            MagicPenetration = 0.2f,
-
-            // 伤害配置属性
-            BaseDamage = 10f,
-            DamageType = DamageType.Magic,
-            DamageRadius = 5f,
-            DamageInterval = 0.5f,
-            IsContinuousDamage = true,
-            DamageDuration = 10f,
-            CanDealDamage = true
-        };
+        protected override ObjectStatsConfig ObjectStatsConfig => ObjectStatsConfig.CreateFire();
 
         #endregion
 
@@ -203,11 +182,13 @@ namespace AFrameWork.Sample
             }
 
             ObjectStatsConfig stats = GetObjectStats();
-            return Time.time - lastDamageTime >= stats.DamageInterval;
+            // 魔法持续伤害间隔 = 1f / CastSpeed（CastSpeed=2 时，间隔=0.5秒）
+            return Time.time - lastDamageTime >= 1f / stats.CastSpeed;
         }
 
         /// <summary>
         /// 对目标应用伤害
+        /// CalculateAttack 计算伤害（不扣血），target.TakeDamage 应用（保留无敌/回调/死亡）
         /// </summary>
         private void ApplyDamageToTarget(ObjectBase target)
         {
@@ -216,22 +197,15 @@ namespace AFrameWork.Sample
                 return;
             }
 
-            float actualDamage = CalculateDamage(target);
-            target.TakeDamage(actualDamage);
-
-#if UNITY_EDITOR
-            // Debug.Log($"火球对 {target.name} 造成 {actualDamage} 点魔法伤害");
-#endif
-        }
-
-        /// <summary>
-        /// 计算实际伤害值（考虑属性和防御）
-        /// </summary>
-        private float CalculateDamage(ObjectBase target)
-        {
             ObjectStatsConfig attackerStats = GetObjectStats();
             ObjectStatsConfig targetStats = target.GetObjectStats();
-            return attackerStats.CalculateDamage(targetStats);
+            float damage = ObjectStatsConfig.CalculateAttack(
+                new ObjectStatsConfigMultiplier(), targetStats, attackerStats);
+            target.TakeDamage(damage);
+
+#if UNITY_EDITOR
+            // Debug.Log($"火球对 {target.name} 造成魔法伤害");
+#endif
         }
 
         #endregion
@@ -285,7 +259,7 @@ namespace AFrameWork.Sample
             ObjectStatsConfig stats = GetObjectStats();
             if (stats != null)
             {
-                stats.DamageRadius = radius;
+                stats.SetDamageRadius(radius);
 
                 SphereCollider sphereCollider = GetObjectComponent<SphereCollider>();
                 if (sphereCollider != null)
@@ -303,7 +277,7 @@ namespace AFrameWork.Sample
             ObjectStatsConfig stats = GetObjectStats();
             if (stats != null)
             {
-                stats.DamageDuration = duration;
+                stats.SetDamageDuration(duration);
             }
         }
 
@@ -331,7 +305,7 @@ namespace AFrameWork.Sample
     ///   - Fire 继承 ObjectBase，复用父类的属性系统、组件管理、生命周期管理
     ///   - 未重写 MovementConfig（默认 null），表示火球不使用移动系统
     ///     实际场景中可通过外部脚本（如 SkillLauncher）设置火球位置或使用 Rigidbody 移动
-    ///   - 伤害计算委托给 ObjectStatsConfig.CalculateDamage（含暴击、防御、穿透公式）
+    ///   - 伤害计算委托给 ObjectStatsConfig.CalculateAttack（含闪避、暴击、防御、穿透公式）
     ///   - 通过 GetObjectStats() 获取自身属性配置，避免每次属性访问产生新实例
     ///   - 父类自动处理：Awake 缓存 MovementConfig（null）、CalculateObjectBounds 零分配
     ///
@@ -341,7 +315,7 @@ namespace AFrameWork.Sample
     ///   m_damageTimers : Dictionary&lt;ObjectBase, float&gt;
     ///     - 键：进入触发器范围的目标对象
     ///     - 值：上次对该目标造成伤害的时间（Time.time）
-    ///     - 用途：实现 DamageInterval 间隔伤害，防止每物理帧重复造成伤害
+    ///     - 用途：实现持续伤害间隔（1f / CastSpeed），防止每物理帧重复造成伤害
     ///     - 预分配容量 8：避免运行时扩容产生的 GC 压力
     ///     - 生命周期：OnTriggerEnter 添加，OnTriggerExit 移除，OnDestroy 清空
     ///
@@ -357,14 +331,14 @@ namespace AFrameWork.Sample
     /// 【伤害机制】
     /// ════════════════════════════════════════════════════════════
     ///   - 进入范围（OnTriggerEnter）：立即造成首次伤害（无间隔等待）
-    ///   - 停留范围（OnTriggerStay）：按 DamageInterval 间隔持续造成伤害
+    ///   - 停留范围（OnTriggerStay）：按 1f/CastSpeed 间隔持续造成伤害
     ///   - 离开范围（OnTriggerExit）：清除伤害计时器，停止持续伤害
     ///   - 持续时间到达（DamageDuration）：Update 中检测，自动销毁火球
     ///
     ///   持续伤害 vs 一次性伤害：
     ///     - IsContinuousDamage = true（默认）：启用持续伤害，OnTriggerStay 按间隔触发
     ///     - IsContinuousDamage = false：仅 OnTriggerEnter 造成一次伤害，OnTriggerStay 直接返回
-    ///     - 配合 DamageInterval 控制持续伤害频率（如 0.5 秒一次）
+    ///     - 配合 CastSpeed 控制持续伤害频率（interval = 1f / CastSpeed）
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【触发器回调详细流程】
@@ -373,8 +347,7 @@ namespace AFrameWork.Sample
     ///     1. TryGetComponent&lt;ObjectBase&gt; 获取目标，失败或目标为自身则返回
     ///     2. ApplyDamageToTarget(target) —— 立即造成首次伤害
     ///        ├─ 空引用检查（target == null）和死亡检查（IsDead）
-    ///        ├─ CalculateDamage(target) 计算实际伤害（委托给 ObjectStatsConfig）
-    ///        └─ target.TakeDamage(actualDamage) 应用伤害
+    ///        └─ CalculateAttack(...) 计算伤害 + target.TakeDamage(damage) 应用（保留无敌/回调/死亡）
     ///     3. 若 IsContinuousDamage = true，记录 m_damageTimers[target] = Time.time
     ///
     ///   OnTriggerStay(Collider other) 流程：
@@ -382,7 +355,7 @@ namespace AFrameWork.Sample
     ///     2. TryGetComponent 获取目标，失败或目标为自身则返回
     ///     3. CanApplyDamage(target) 检查伤害间隔
     ///        ├─ 不在字典中 → 返回 true（首次进入但未触发 Enter 的边缘情况）
-    ///        └─ Time.time - lastDamageTime &gt;= DamageInterval → 返回 true
+    ///        └─ Time.time - lastDamageTime &gt;= 1f/CastSpeed → 返回 true
     ///     4. ApplyDamageToTarget(target) 造成伤害
     ///     5. 更新 m_damageTimers[target] = Time.time
     ///
@@ -396,26 +369,26 @@ namespace AFrameWork.Sample
     /// ════════════════════════════════════════════════════════════
     ///   ApplyDamageToTarget(target) 内部：
     ///     1. 空引用和死亡检查（防御性编程，避免对已死亡目标造成伤害）
-    ///     2. 调用 CalculateDamage(target) 计算伤害值
-    ///     3. target.TakeDamage(actualDamage) 应用伤害（触发目标 OnDamaged 回调）
+    ///     2. CalculateAttack(new ObjectStatsConfigMultiplier(), targetStats, attackerStats) 计算伤害（不扣血）
+    ///     3. target.TakeDamage(damage) 应用伤害（经 ObjectBase.TakeDamage 保留无敌/回调/死亡）
     ///
-    ///   CalculateDamage(target) 内部：
+    ///   CalculateAttack 内部流程：
     ///     attackerStats = GetObjectStats()  // 火球自身属性
     ///     targetStats   = target.GetObjectStats()  // 目标属性
-    ///     return attackerStats.CalculateDamage(targetStats)
-    ///       ↓ 委托给 ObjectStatsConfig 的伤害公式
-    ///     公式（DamageType.Magic 时）：
-    ///       实际伤害 = (BaseDamage + MagicAttack) × (1 - 目标 MagicDefense 减免)
+    ///     累加所有攻击方属性 → 闪避判定 → 伤害计算 → 暴击判定（不扣血，返回伤害值）
+    ///     公式（魔法伤害）：
+    ///       实际伤害 = MagicAttack × (100 / (100 + 目标 MagicDefense × (1 - MagicPenetration)))
     ///       减免 = MagicDefense × (1 - MagicPenetration)
     ///     暴击判定：
     ///       Random.value &lt; CriticalRate → 暴击，伤害 × CriticalDamageMultiplier
     ///     命中判定：
     ///       Random.value &gt; HitRate → 未命中，伤害为 0
     ///
-    ///   伤害类型对照（DamageType 枚举）：
-    ///     Physical：基于 PhysicalAttack + ArmorPenetration
-    ///     Magic   ：基于 MagicAttack + MagicPenetration（火球默认）
-    ///     True    ：无视防御的固定伤害
+    ///   伤害类型对照：
+    ///     PhysicalAttack > 0：计算物理伤害（受 PhysicalDefense + ArmorPenetration 减免）
+    ///     MagicAttack > 0   ：计算魔法伤害（受 MagicDefense + MagicPenetration 减免，火球主要伤害来源）
+    ///     TrueDamage > 0    ：无视防御的固定伤害
+    ///     CalculateAttack 自动累加所有非零攻击类型
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【持续时间控制机制】
@@ -472,13 +445,12 @@ namespace AFrameWork.Sample
     ///       Type = ObjectType.Projectile（投射物类型）
     ///       FactionID = 100（中立阵营，可伤害所有非中立阵营）
     ///       MaxHealth = CurrentHealth = 1f（火球一击即毁，无需大量生命值）
-    ///       MagicAttack = 15f（魔法攻击力）
+    ///       MagicAttack = 25f（魔法攻击力，替代 BaseDamage + DamageType.Magic）
     ///       MagicPenetration = 0.2f（20% 魔法穿透，无视部分魔防）
+    ///     速度属性：
+    ///       CastSpeed = 2f（施法频率 2次/秒，即每 0.5 秒一次，替代 DamageInterval）
     ///     伤害配置：
-    ///       BaseDamage = 10f（基础伤害）
-    ///       DamageType = DamageType.Magic（魔法伤害）
     ///       DamageRadius = 5f（5 米范围伤害）
-    ///       DamageInterval = 0.5f（每 0.5 秒造成一次伤害）
     ///       IsContinuousDamage = true（启用持续伤害）
     ///       DamageDuration = 10f（持续 10 秒后销毁）
     ///       CanDealDamage = true（启用伤害判定）
@@ -536,7 +508,7 @@ namespace AFrameWork.Sample
     ///      - 或在 Update 中通过 Rigidbody.velocity 控制飞行方向
     ///
     ///   3. 添加伤害类型变化：
-    ///      - 运行时修改 ObjectStatsConfig.DamageType 实现伤害类型切换
+    ///      - 运行时修改 PhysicalAttack/MagicAttack/TrueDamage 实现伤害类型切换
     ///      - 配合 SetDamageRadius 实现技能变形
     ///
     ///   4. 添加目标过滤：

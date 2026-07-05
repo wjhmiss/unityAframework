@@ -26,7 +26,7 @@ namespace AFrameWork.Core.SmallBase
     ///   1. Addressables 配置：在 Addressables Groups 窗口为预制体添加 "PoolObjects" label
     ///   2. 预制体要求：根节点必须挂载 SimpleObjectBase 子类组件（用于推断类型）
     ///   3. 自动注册：Start 时自动遍历 Addressables 中标记 PoolObjects label 的预制体并注册
-    ///   4. 发射：SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(pos, dir, owner, damage)
+    ///   4. 发射：SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(pos, dir, owner)
     ///   5. 运行时注册：可选调用 RegisterPrefab&lt;T&gt;(prefab, prewarm) 手动注册
     ///
     /// 回收时序：
@@ -188,20 +188,18 @@ namespace AFrameWork.Core.SmallBase
 
         /// <summary>
         /// 从池中取出一个指定类型的对象并初始化。
+        /// 伤害参数不再由调用方传入：Initialize 会克隆 owner 的 ObjectStatsConfig 作为快照，
+        /// 命中时通过 ObjectStatsConfig.CalculateAttack 走完整伤害公式。
         /// </summary>
         /// <typeparam name="T">SimpleObjectBase 子类类型（需已注册 prefab）</typeparam>
         /// <param name="position">初始位置</param>
         /// <param name="direction">初始方向（会归一化）</param>
-        /// <param name="owner">发射者（用于继承阵营与穿透属性）</param>
-        /// <param name="damage">伤害值</param>
-        /// <param name="damageType">伤害类型</param>
+        /// <param name="owner">发射者（用于继承阵营与战斗属性快照）</param>
         /// <returns>取出的对象实例；未注册或池异常时返回 null</returns>
         public T Launch<T>(
             Vector3 position,
             Vector3 direction,
-            ObjectBase owner,
-            float damage,
-            DamageType damageType = DamageType.Physical) where T : SimpleObjectBase
+            ObjectBase owner) where T : SimpleObjectBase
         {
             if (!m_pools.TryGetValue(typeof(T), out PoolEntry entry))
             {
@@ -215,7 +213,7 @@ namespace AFrameWork.Core.SmallBase
                 Debug.LogError($"[{GetType().Name}] 池 {typeof(T).Name} 返回 null 实例（prefab 可能未挂载组件）。", this);
                 return null;
             }
-            obj.Initialize(position, direction, owner, damage, damageType);
+            obj.Initialize(position, direction, owner);
             return (T)obj;
         }
 
@@ -655,13 +653,11 @@ namespace AFrameWork.Core.SmallBase
     /// {
     ///     private void FireBullet()
     ///     {
-    ///         ObjectStatsConfig stats = GetObjectStats();
+    ///         // 伤害由 owner 的 ObjectStatsConfig 自动克隆为快照，命中时走完整伤害公式
     ///         SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(
     ///             position: transform.position + Vector3.up * 1.5f,
     ///             direction: transform.forward,
-    ///             owner: this,
-    ///             damage: stats.PhysicalAttack,
-    ///             damageType: DamageType.Physical
+    ///             owner: this
     ///         );
     ///     }
     /// }
@@ -682,8 +678,7 @@ namespace AFrameWork.Core.SmallBase
     ///         SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(
     ///             position: transform.position,
     ///             direction: dir,
-    ///             owner: this,
-    ///             damage: GetObjectStats().PhysicalAttack
+    ///             owner: this
     ///         );
     ///     }
     /// }
@@ -707,7 +702,7 @@ namespace AFrameWork.Core.SmallBase
     ///
     /// // 2. 预制体标记 "PoolObjects" label
     /// // 3. 自动注册后即可发射
-    /// SimpleObjectPool.Instance.Launch&lt;Arrow&gt;(pos, dir, owner, damage);
+    /// SimpleObjectPool.Instance.Launch&lt;Arrow&gt;(pos, dir, owner);
     /// </code>
     ///
     /// ────────────────────────────────────────────────────────────

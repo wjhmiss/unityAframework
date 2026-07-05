@@ -34,6 +34,16 @@ namespace AFrameWork.Sample
         // 碰撞体半径（米）
         private const float k_colliderRadius = 0.2f;
 
+        // 子弹自身基础属性（所有 Bullet 实例共享一个实例，零 GC）
+        // 命中时与 owner 克隆累加：bullet.PhysicalAttack + owner.PhysicalAttack
+        // 其他战斗字段（穿透/暴击/命中/闪避）默认 0，由 owner 克隆贡献
+        private static readonly ObjectStatsConfig s_bulletStats = new ObjectStatsConfig(
+            maxHealth: 0f, physicalAttack: 10f, physicalDefense: 0f,
+            magicAttack: 0f, magicDefense: 0f, moveSpeed: 0f);
+
+        /// <summary>所有 Bullet 共享的基础属性（10 点物理攻击），与 owner 克隆累加计算伤害。</summary>
+        protected override ObjectStatsConfig SharedStats => s_bulletStats;
+
         #endregion
 
         #region SimpleObjectBase 抽象方法实现
@@ -190,10 +200,23 @@ namespace AFrameWork.Sample
     ///     3. TryGetComponent&lt;ObjectBase&gt; 获取目标
     ///     4. 目标属性和死亡检查
     ///     5. CanDealDamageTo 阵营判定（使用 owner 的 int 字段，无 GC）
-    ///     6. CalculateFinalDamage 计算最终伤害（含防御减免）
-    ///     7. target.TakeDamage 应用伤害
+    ///     6. ObjectStatsConfig.CalculateAttack 计算最终伤害
+    ///        攻击方累加：s_bulletStats（子弹共享 10 物攻）+ m_attackerStats（owner 克隆）
+    ///        （完整公式：累加攻击/穿透 → 闪避 → 防御减免 → 暴击）
+    ///     7. target.TakeDamage 应用伤害（经 ObjectBase.TakeDamage 保留无敌/回调/死亡）
     ///     8. OnHit 回调（Bullet 可重写播放特效）
     ///     9. Deactivate 请求回收
+    ///
+    /// ════════════════════════════════════════════════════════════
+    /// 【子弹自身属性 s_bulletStats】
+    /// ════════════════════════════════════════════════════════════
+    ///   所有 Bullet 实例共享一个 static readonly ObjectStatsConfig（零 GC）：
+    ///     PhysicalAttack = 10f  // 子弹基础物理伤害，与 owner 克隆累加
+    ///     其他字段 = 0          // 穿透/暴击/命中/闪避由 owner 克隆贡献
+    ///   命中时传入 CalculateAttack 的攻击方数组：
+    ///     [0] = s_bulletStats   // 子弹共享属性
+    ///     [1] = m_attackerStats // owner 克隆（可能为 null，CalculateAttack 跳过）
+    ///   子类可重写 SharedStats 返回自己的 static readonly 实例（不同子弹类型不同基础伤害）
     ///
     /// ────────────────────────────────────────────────────────────
     /// 示例 1：基本使用（自动注册）
@@ -203,13 +226,11 @@ namespace AFrameWork.Sample
     /// // 2. 在 Addressables Groups 中标记为 Addressable 并添加 "PoolObjects" label
     /// // 3. 场景中创建 GameObject 挂载 SimpleObjectPool 组件
     /// // 4. 运行时自动注册并预热
-    /// // 5. 发射：
+    /// // 5. 发射（伤害由 owner 的 ObjectStatsConfig 自动克隆）：
     /// SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(
     ///     position: spawnPos,
     ///     direction: targetDir,
-    ///     owner: shooter,
-    ///     damage: shooterStats.PhysicalAttack,
-    ///     damageType: DamageType.Physical
+    ///     owner: shooter
     /// );
     /// </code>
     ///
@@ -276,10 +297,31 @@ namespace AFrameWork.Sample
     ///     SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(
     ///         position: transform.position,
     ///         direction: dir,
-    ///         owner: this,
-    ///         damage: GetObjectStats().PhysicalAttack
+    ///         owner: this
     ///     );
     /// }
+    /// </code>
+    ///
+    /// ────────────────────────────────────────────────────────────
+    /// 示例 6：自定义子弹基础属性（重写 SharedStats）
+    /// ────────────────────────────────────────────────────────────
+    /// <code>
+    /// // 火焰子弹：20 魔法攻击 + 5 真实伤害，所有实例共享一个 ObjectStatsConfig
+    /// public class FireBullet : Bullet
+    /// {
+    ///     private static readonly ObjectStatsConfig s_fireBulletStats = new ObjectStatsConfig(
+    ///         maxHealth: 0f, physicalAttack: 0f, physicalDefense: 0f,
+    ///         magicAttack: 20f, magicDefense: 0f, moveSpeed: 0f);
+    ///
+    ///     // 在构造后补充真实伤害（构造函数未覆盖此字段）
+    ///     static FireBullet()
+    ///     {
+    ///         s_fireBulletStats.TrueDamage = 5f;
+    ///     }
+    ///
+    ///     protected override ObjectStatsConfig SharedStats => s_fireBulletStats;
+    /// }
+    /// // 命中时伤害 = (0 物攻 + owner 物攻) + (20 魔攻 + owner 魔攻) + 5 真伤
     /// </code>
     /// </summary>
 }

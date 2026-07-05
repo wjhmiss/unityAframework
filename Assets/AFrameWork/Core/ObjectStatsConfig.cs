@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AFrameWork.Core
@@ -78,9 +79,6 @@ namespace AFrameWork.Core
         /// <summary>真实伤害倍率（-1=使用基础值）</summary>
         public float TrueDamageMultiplier;
 
-        /// <summary>基础伤害倍率（-1=使用基础值）</summary>
-        public float BaseDamageMultiplier;
-
         #endregion
 
         #region 暴击属性倍率
@@ -120,7 +118,6 @@ namespace AFrameWork.Core
             float physicalAttackMultiplier = k_useBase,
             float magicAttackMultiplier = k_useBase,
             float trueDamageMultiplier = k_useBase,
-            float baseDamageMultiplier = k_useBase,
             float criticalRateMultiplier = k_useBase,
             float criticalDamageMultiplier = k_useBase,
             float armorPenetrationMultiplier = k_useBase,
@@ -131,7 +128,6 @@ namespace AFrameWork.Core
             PhysicalAttackMultiplier = physicalAttackMultiplier;
             MagicAttackMultiplier = magicAttackMultiplier;
             TrueDamageMultiplier = trueDamageMultiplier;
-            BaseDamageMultiplier = baseDamageMultiplier;
             CriticalRateMultiplier = criticalRateMultiplier;
             CriticalDamageMultiplier = criticalDamageMultiplier;
             ArmorPenetrationMultiplier = armorPenetrationMultiplier;
@@ -178,12 +174,12 @@ namespace AFrameWork.Core
         // 物体类型
         [SerializeField]
         [Tooltip("物体类型（角色、投射物、陷阱等）")]
-        public ObjectType Type = ObjectType.Warrior;
+        public ObjectType Type = ObjectType.None;
 
         // 阵营ID（使用唯一ID标识阵营，而非固定枚举）
         [SerializeField]
         [Tooltip("阵营ID（1=玩家阵营A，2=玩家阵营B，3=怪物阵营，100=中立等）")]
-        public int FactionID = 1;
+        public int FactionID = 0;
 
         // 队伍ID（同一队伍的成员互为友方，优先级最高）
         [SerializeField]
@@ -208,22 +204,22 @@ namespace AFrameWork.Core
         // 最大生命值
         [SerializeField]
         [Tooltip("最大生命值")]
-        public float MaxHealth = 100f;
+        public float MaxHealth = 0f;
 
         // 当前生命值
         [SerializeField]
         [Tooltip("当前生命值")]
-        public float CurrentHealth = 100f;
+        public float CurrentHealth = 0f;
 
         // 物理攻击力
         [SerializeField]
         [Tooltip("物理攻击力")]
-        public float PhysicalAttack = 10f;
+        public float PhysicalAttack = 0f;
 
         // 物理防御力
         [SerializeField]
         [Tooltip("物理防御力")]
-        public float PhysicalDefense = 5f;
+        public float PhysicalDefense = 0f;
 
         // 真实伤害
         [SerializeField]
@@ -233,12 +229,12 @@ namespace AFrameWork.Core
         // 魔法攻击力
         [SerializeField]
         [Tooltip("魔法攻击力")]
-        public float MagicAttack = 10f;
+        public float MagicAttack = 0f;
 
         // 魔法防御力
         [SerializeField]
         [Tooltip("魔法防御力")]
-        public float MagicDefense = 5f;
+        public float MagicDefense = 0f;
 
         #endregion
 
@@ -247,17 +243,17 @@ namespace AFrameWork.Core
         // 移动速度
         [SerializeField]
         [Tooltip("移动速度，单位：米/秒")]
-        public float MoveSpeed = 5f;
+        public float MoveSpeed = 0f;
 
         // 攻击速度
         [SerializeField]
         [Tooltip("攻击速度，每秒攻击次数")]
-        public float AttackSpeed = 1f;
+        public float AttackSpeed = 0f;
 
         // 施法速度
         [SerializeField]
-        [Tooltip("施法速度倍率")]
-        public float CastSpeed = 1f;
+        [Tooltip("施法速度，每秒施法次数（持续伤害间隔 = 1/CastSpeed）")]
+        public float CastSpeed = 0f;
 
         #endregion
 
@@ -267,12 +263,12 @@ namespace AFrameWork.Core
         [SerializeField]
         [Tooltip("暴击率，范围：0-1")]
         [Range(0f, 1f)]
-        public float CriticalRate = 0.1f;
+        public float CriticalRate = 0f;
 
         // 暴击伤害倍率
         [SerializeField]
         [Tooltip("暴击伤害倍率（例如：2.0 表示暴击伤害为200%）")]
-        public float CriticalDamageMultiplier = 2f;
+        public float CriticalDamageMultiplier = 0f;
 
         #endregion
 
@@ -297,12 +293,12 @@ namespace AFrameWork.Core
         // 生命恢复速度
         [SerializeField]
         [Tooltip("生命恢复速度，每秒恢复的生命值")]
-        public float HealthRegeneration = 1f;
+        public float HealthRegeneration = 0f;
 
         // 魔法恢复速度
         [SerializeField]
         [Tooltip("魔法恢复速度，每秒恢复的魔法值")]
-        public float ManaRegeneration = 1f;
+        public float ManaRegeneration = 0f;
 
         #endregion
 
@@ -311,12 +307,12 @@ namespace AFrameWork.Core
         // 最大魔法值
         [SerializeField]
         [Tooltip("最大魔法值")]
-        public float MaxMana = 100f;
+        public float MaxMana = 0f;
 
         // 当前魔法值
         [SerializeField]
         [Tooltip("当前魔法值")]
-        public float CurrentMana = 100f;
+        public float CurrentMana = 0f;
 
         // 冷却缩减
         [SerializeField]
@@ -334,17 +330,17 @@ namespace AFrameWork.Core
         [SerializeField]
         [Tooltip("命中率，范围：0-1")]
         [Range(0f, 1f)]
-        public float HitRate = 1f;
+        public float HitRate = 0f;
 
         // 攻击范围
         [SerializeField]
         [Tooltip("攻击范围，单位：米")]
-        public float AttackRange = 5f;
+        public float AttackRange = 0f;
 
         // 视野范围
         [SerializeField]
         [Tooltip("视野范围，单位：米")]
-        public float VisionRange = 10f;
+        public float VisionRange = 0f;
 
         // 经验值
         [SerializeField]
@@ -354,7 +350,7 @@ namespace AFrameWork.Core
         // 等级
         [SerializeField]
         [Tooltip("当前等级")]
-        public int Level = 1;
+        public int Level = 0;
 
         // 金币
         [SerializeField]
@@ -365,47 +361,208 @@ namespace AFrameWork.Core
 
         #region 伤害配置属性（从 DamageConfig 合并）
 
-        // 基础伤害值
-        [SerializeField]
-        [Tooltip("基础伤害值（用于投射物、陷阱等）")]
-        public float BaseDamage = 10f;
-
-        // 伤害类型
-        [SerializeField]
-        [Tooltip("伤害类型（物理/魔法/真实）")]
-        public DamageType DamageType = DamageType.Physical;
-
         // 伤害范围
         [SerializeField]
         [Tooltip("范围伤害半径，单位：米")]
-        public float DamageRadius = 5f;
-
-        // 伤害频率（秒）
-        [SerializeField]
-        [Tooltip("持续伤害频率，单位：秒（每多少秒造成一次伤害）")]
-        public float DamageInterval = 1f;
+        public float DamageRadius = 0f;
 
         // 是否持续伤害
         [SerializeField]
         [Tooltip("是否持续伤害（ OnTriggerStay 中持续造成伤害）")]
-        public bool IsContinuousDamage = true;
+        public bool IsContinuousDamage = false;
 
         // 伤害持续时间（秒）
         [SerializeField]
         [Tooltip("伤害持续时间，单位：秒（持续伤害的总时长）")]
-        public float DamageDuration = 5f;
+        public float DamageDuration = 0f;
 
         // 是否可以造成伤害
         [SerializeField]
         [Tooltip("是否可以造成伤害（用于控制物体是否启用伤害功能）")]
-        public bool CanDealDamage = true;
+        public bool CanDealDamage = false;
 
         #endregion
 
         /// <summary>
-        /// 默认配置构造函数（创建空配置，由 CopyObjectStatsConfig 填充）
+        /// 默认配置构造函数（创建空配置，由 CopyTo/Clone 填充）
         /// </summary>
         public ObjectStatsConfig() { }
+
+        /// <summary>
+        /// 将当前实例的全部字段复制到目标实例（用于创建运行时快照，避免修改原始配置）。
+        /// 字段列表与 ObjectBase.CopyObjectStatsConfig 保持一致，集中维护避免重复。
+        /// </summary>
+        /// <param name="target">被填充的目标实例（通常为 new ObjectStatsConfig()）</param>
+        public void CopyTo(ObjectStatsConfig target)
+        {
+            if (target == null) return;
+
+            target.Type = Type;
+            target.FactionID = FactionID;
+            target.TeamID = TeamID;
+            target.GuildID = GuildID;
+            target.AllianceID = AllianceID;
+            target.CurrentPVPMode = CurrentPVPMode;
+            target.MaxHealth = MaxHealth;
+            target.CurrentHealth = CurrentHealth;
+            target.PhysicalAttack = PhysicalAttack;
+            target.PhysicalDefense = PhysicalDefense;
+            target.TrueDamage = TrueDamage;
+            target.MagicAttack = MagicAttack;
+            target.MagicDefense = MagicDefense;
+            target.MoveSpeed = MoveSpeed;
+            target.AttackSpeed = AttackSpeed;
+            target.CastSpeed = CastSpeed;
+            target.CriticalRate = CriticalRate;
+            target.CriticalDamageMultiplier = CriticalDamageMultiplier;
+            target.ArmorPenetration = ArmorPenetration;
+            target.MagicPenetration = MagicPenetration;
+            target.HealthRegeneration = HealthRegeneration;
+            target.ManaRegeneration = ManaRegeneration;
+            target.MaxMana = MaxMana;
+            target.CurrentMana = CurrentMana;
+            target.CooldownReduction = CooldownReduction;
+            target.EvasionRate = EvasionRate;
+            target.HitRate = HitRate;
+            target.AttackRange = AttackRange;
+            target.VisionRange = VisionRange;
+            target.Experience = Experience;
+            target.Level = Level;
+            target.Gold = Gold;
+            target.DamageRadius = DamageRadius;
+            target.IsContinuousDamage = IsContinuousDamage;
+            target.DamageDuration = DamageDuration;
+            target.CanDealDamage = CanDealDamage;
+        }
+
+        /// <summary>
+        /// 克隆当前实例（深拷贝字段值到新实例）。
+        /// 用于 SimpleObjectBase 等场景在发射时锁定 owner 属性快照，
+        /// 避免 owner 后续 buff/销毁影响已发射投射物。
+        /// </summary>
+        /// <returns>字段值完全相同的新实例</returns>
+        public ObjectStatsConfig Clone()
+        {
+            ObjectStatsConfig copy = new ObjectStatsConfig();
+            CopyTo(copy);
+            return copy;
+        }
+
+        #region 静态工厂方法（统一管理所有子类属性配置）
+
+        /// <summary>
+        /// 战士（Fighter）属性配置
+        /// </summary>
+        public static ObjectStatsConfig CreateFighter()
+        {
+            return new ObjectStatsConfig
+            {
+                Type = ObjectType.Warrior,
+                FactionID = 1,
+                MaxHealth = 100f,
+                CurrentHealth = 100f,
+                PhysicalAttack = 25f,
+                PhysicalDefense = 15f,
+                TrueDamage = 5f,
+                MagicAttack = 10f,
+                MagicDefense = 12f,
+                MoveSpeed = 6f,
+                AttackSpeed = 1.5f,
+                CastSpeed = 1.2f,
+                CriticalRate = 0.2f,
+                CriticalDamageMultiplier = 2.5f,
+                ArmorPenetration = 0.15f,
+                MagicPenetration = 0.1f,
+                HealthRegeneration = 2f,
+                ManaRegeneration = 3f,
+                MaxMana = 80f,
+                CurrentMana = 80f,
+                CooldownReduction = 0.1f,
+                EvasionRate = 0.05f,
+                HitRate = 0.95f,
+                AttackRange = 3f,
+                VisionRange = 12f,
+                Experience = 0f,
+                Level = 1,
+                Gold = 0
+            };
+        }
+
+        /// <summary>
+        /// 剑（Sword）属性配置
+        /// </summary>
+        public static ObjectStatsConfig CreateSword()
+        {
+            return new ObjectStatsConfig
+            {
+                Type = ObjectType.Weapon,
+                FactionID = 0,
+                MaxHealth = 100f,
+                CurrentHealth = 100f,
+                PhysicalAttack = 5f,
+                AttackRange = 1.5f,
+                CanDealDamage = true
+            };
+        }
+
+        /// <summary>
+        /// 火球（Fire）属性配置
+        /// </summary>
+        public static ObjectStatsConfig CreateFire()
+        {
+            return new ObjectStatsConfig
+            {
+                Type = ObjectType.Projectile,
+                FactionID = 100,
+                MaxHealth = 1f,
+                CurrentHealth = 1f,
+                MagicAttack = 25f,
+                MagicPenetration = 0.2f,
+                CastSpeed = 2f,
+                DamageRadius = 5f,
+                IsContinuousDamage = true,
+                DamageDuration = 10f,
+                CanDealDamage = true
+            };
+        }
+
+        /// <summary>
+        /// 怪物（Monster）属性配置
+        /// </summary>
+        public static ObjectStatsConfig CreateMonster()
+        {
+            return new ObjectStatsConfig
+            {
+                Type = ObjectType.Tank,
+                FactionID = 11,
+                MaxHealth = 100f,
+                CurrentHealth = 100f,
+                PhysicalAttack = 15f,
+                PhysicalDefense = 10f,
+                TrueDamage = 3f,
+                MagicAttack = 5f,
+                MagicDefense = 8f,
+                MoveSpeed = 4f,
+                AttackSpeed = 1.0f,
+                CastSpeed = 1.0f,
+                CriticalRate = 0.1f,
+                CriticalDamageMultiplier = 2.0f,
+                ArmorPenetration = 0.1f,
+                MagicPenetration = 0.05f,
+                HealthRegeneration = 1f,
+                ManaRegeneration = 1f,
+                MaxMana = 50f,
+                CurrentMana = 50f,
+                CooldownReduction = 0.05f,
+                EvasionRate = 0.03f,
+                HitRate = 0.9f,
+                AttackRange = 2f,
+                VisionRange = 10f,
+                Level = 1
+            };
+        }
+
+        #endregion
 
         /// <summary>
         /// 自定义配置构造函数（基础属性）
@@ -425,112 +582,96 @@ namespace AFrameWork.Core
         #region 伤害计算方法
 
         /// <summary>
-        /// 计算实际物理伤害（考虑防御和穿透）
+        /// 计算攻击伤害（不应用）：累加所有攻击方属性 → 闪避判定 → 伤害计算（防御减免+穿透）→ 暴击判定。
+        ///
+        /// 此方法是唯一的伤害计算入口，不调用 target.TakeDamage —— 由调用方决定如何应用：
+        ///   float damage = CalculateAttack(multiplier, targetStats, attackerStats);
+        ///   target.TakeDamage(damage);  // 经 ObjectBase.TakeDamage 保留无敌检查/OnDamaged/OnDeath
+        ///
+        /// 这样分离计算与应用，避免 AttackTarget 那种"计算+扣血一体"导致的重复扣血风险。
         /// </summary>
-        /// <param name="targetDefense">目标物理防御</param>
-        /// <returns>实际造成的物理伤害</returns>
-        public float CalculatePhysicalDamage(float targetDefense)
+        /// <param name="multiplier">攻击参数倍率（无倍率传 new ObjectStatsConfigMultiplier()）</param>
+        /// <param name="target">目标属性配置（仅读取防御/闪避，不修改）</param>
+        /// <param name="attackers">攻击方属性（可变参数，1 个或多个，会被累加。如武器+持有者）</param>
+        /// <returns>计算出的伤害值（被闪避返回 0）</returns>
+        public static float CalculateAttack(
+            ObjectStatsConfigMultiplier multiplier,
+            ObjectStatsConfig target,
+            params ObjectStatsConfig[] attackers)
         {
-            // 计算穿透后的防御值
-            float effectiveDefense = targetDefense * (1f - ArmorPenetration);
+            if (target == null || attackers == null || attackers.Length == 0)
+            {
+                return 0f;
+            }
 
-            // 物理伤害公式：伤害 = 攻击力 * (100 / (100 + 防御))
-            float damage = PhysicalAttack * (100f / (100f + effectiveDefense));
+            // 1. 累加所有攻击方的战斗属性
+            float totalPhysicalAttack = 0f;
+            float totalMagicAttack = 0f;
+            float totalTrueDamage = 0f;
+            float totalArmorPenetration = 0f;
+            float totalMagicPenetration = 0f;
+            float totalCriticalRate = 0f;
+            float totalCriticalDamageMultiplier = 0f;
+            float totalHitRate = 0f;
+
+            int count = attackers.Length;
+            for (int i = 0; i < count; i++)
+            {
+                ObjectStatsConfig attacker = attackers[i];
+                if (attacker == null)
+                {
+                    continue;
+                }
+
+                totalPhysicalAttack += attacker.PhysicalAttack;
+                totalMagicAttack += attacker.MagicAttack;
+                totalTrueDamage += attacker.TrueDamage;
+                totalArmorPenetration += attacker.ArmorPenetration;
+                totalMagicPenetration += attacker.MagicPenetration;
+                totalCriticalRate += attacker.CriticalRate;
+                totalCriticalDamageMultiplier += attacker.CriticalDamageMultiplier;
+                totalHitRate += attacker.HitRate;
+            }
+
+            // 2. 应用攻击参数倍率
+            float effectivePhysAtk = ObjectStatsConfigMultiplier.Apply(totalPhysicalAttack, multiplier.PhysicalAttackMultiplier);
+            float effectiveMagicAtk = ObjectStatsConfigMultiplier.Apply(totalMagicAttack, multiplier.MagicAttackMultiplier);
+            float effectiveTrueDmg = ObjectStatsConfigMultiplier.Apply(totalTrueDamage, multiplier.TrueDamageMultiplier);
+            float effectiveArmorPen = ObjectStatsConfigMultiplier.Apply(totalArmorPenetration, multiplier.ArmorPenetrationMultiplier);
+            float effectiveMagicPen = ObjectStatsConfigMultiplier.Apply(totalMagicPenetration, multiplier.MagicPenetrationMultiplier);
+            float effectiveCritRate = ObjectStatsConfigMultiplier.Apply(totalCriticalRate, multiplier.CriticalRateMultiplier);
+            float effectiveCritDmg = ObjectStatsConfigMultiplier.Apply(totalCriticalDamageMultiplier, multiplier.CriticalDamageMultiplier);
+
+            // 3. 闪避判定（累加命中率 vs 目标闪避率）
+            if (target.IsEvaded(totalHitRate))
+            {
+                return 0f;
+            }
+
+            // 4. 计算伤害（累加所有非零攻击类型，含防御减免）
+            float damage = 0f;
+
+            if (effectivePhysAtk > 0f)
+            {
+                float effectiveDefense = target.PhysicalDefense * (1f - effectiveArmorPen);
+                damage += effectivePhysAtk * (100f / (100f + effectiveDefense));
+            }
+
+            if (effectiveMagicAtk > 0f)
+            {
+                float effectiveDefense = target.MagicDefense * (1f - effectiveMagicPen);
+                damage += effectiveMagicAtk * (100f / (100f + effectiveDefense));
+            }
+
+            damage += effectiveTrueDmg;
+
+            // 5. 暴击判定
+            if (UnityEngine.Random.value < effectiveCritRate)
+            {
+                damage *= effectiveCritDmg;
+            }
 
             return damage;
-        }
-
-        /// <summary>
-        /// 计算实际魔法伤害（考虑防御和穿透）
-        /// </summary>
-        /// <param name="targetDefense">目标魔法防御</param>
-        /// <returns>实际造成的魔法伤害</returns>
-        public float CalculateMagicDamage(float targetDefense)
-        {
-            // 计算穿透后的防御值
-            float effectiveDefense = targetDefense * (1f - MagicPenetration);
-
-            // 魔法伤害公式：伤害 = 攻击力 * (100 / (100 + 防御))
-            float damage = MagicAttack * (100f / (100f + effectiveDefense));
-
-            return damage;
-        }
-
-        /// <summary>
-        /// 计算实际伤害（根据伤害类型）
-        /// </summary>
-        /// <param name="targetStats">目标属性配置</param>
-        /// <returns>实际伤害值</returns>
-        public float CalculateDamage(ObjectStatsConfig targetStats)
-        {
-            if (targetStats == null)
-            {
-                return BaseDamage;
-            }
-
-            switch (DamageType)
-            {
-                case DamageType.Physical:
-                    // 物理伤害 = 攻击力 - 防御力计算
-                    return CalculatePhysicalDamage(targetStats.PhysicalDefense);
-
-                case DamageType.Magic:
-                    // 魔法伤害 = 魔法攻击力 - 魔法防御力计算
-                    return CalculateMagicDamage(targetStats.MagicDefense);
-
-                case DamageType.True:
-                    // 真实伤害无视防御
-                    return TrueDamage + BaseDamage;
-
-                default:
-                    return BaseDamage;
-            }
-        }
-
-        /// <summary>
-        /// 计算实际伤害（根据伤害类型，应用攻击参数倍率）
-        /// 倍率为 k_useBase(-1) 时使用自身基础属性值，否则 基础值 × 倍率
-        /// </summary>
-        /// <param name="targetStats">目标属性配置</param>
-        /// <param name="multiplier">攻击参数倍率</param>
-        /// <returns>实际伤害值</returns>
-        public float CalculateDamage(ObjectStatsConfig targetStats, ObjectStatsConfigMultiplier multiplier)
-        {
-            if (targetStats == null)
-            {
-                return ObjectStatsConfigMultiplier.Apply(BaseDamage, multiplier.BaseDamageMultiplier);
-            }
-
-            switch (DamageType)
-            {
-                case DamageType.Physical:
-                {
-                    float effectivePhysAtk = ObjectStatsConfigMultiplier.Apply(PhysicalAttack, multiplier.PhysicalAttackMultiplier);
-                    float effectiveArmorPen = ObjectStatsConfigMultiplier.Apply(ArmorPenetration, multiplier.ArmorPenetrationMultiplier);
-                    float effectiveDefense = targetStats.PhysicalDefense * (1f - effectiveArmorPen);
-                    float effectiveBaseDmg = ObjectStatsConfigMultiplier.Apply(BaseDamage, multiplier.BaseDamageMultiplier);
-                    return effectivePhysAtk * (100f / (100f + effectiveDefense)) + effectiveBaseDmg;
-                }
-
-                case DamageType.Magic:
-                {
-                    float effectiveMagicAtk = ObjectStatsConfigMultiplier.Apply(MagicAttack, multiplier.MagicAttackMultiplier);
-                    float effectiveMagicPen = ObjectStatsConfigMultiplier.Apply(MagicPenetration, multiplier.MagicPenetrationMultiplier);
-                    float effectiveDefense = targetStats.MagicDefense * (1f - effectiveMagicPen);
-                    float effectiveBaseDmg = ObjectStatsConfigMultiplier.Apply(BaseDamage, multiplier.BaseDamageMultiplier);
-                    return effectiveMagicAtk * (100f / (100f + effectiveDefense)) + effectiveBaseDmg;
-                }
-
-                case DamageType.True:
-                {
-                    float effectiveTrueDmg = ObjectStatsConfigMultiplier.Apply(TrueDamage, multiplier.TrueDamageMultiplier);
-                    float effectiveBaseDmg = ObjectStatsConfigMultiplier.Apply(BaseDamage, multiplier.BaseDamageMultiplier);
-                    return effectiveTrueDmg + effectiveBaseDmg;
-                }
-
-                default:
-                    return ObjectStatsConfigMultiplier.Apply(BaseDamage, multiplier.BaseDamageMultiplier);
-            }
         }
 
         #endregion
@@ -677,6 +818,171 @@ namespace AFrameWork.Core
         {
             CurrentHealth = MaxHealth;
             CurrentMana = MaxMana;
+        }
+
+        /// <summary>
+        /// 将另一个 ObjectStatsConfig 的所有属性与自身相加，返回新的合并实例
+        /// 用于武器 + 持有者 + Buff 等多个对象属性叠加：数值属性全部相加，布尔属性取或，枚举/ID 取首个有效值
+        /// 可链式调用：a.MergeWith(b).MergeWith(c)
+        /// </summary>
+        /// <param name="other">叠加来源（null 时返回自身的拷贝，不影响结果）</param>
+        /// <returns>叠加后的新 ObjectStatsConfig 实例</returns>
+        public ObjectStatsConfig MergeWith(ObjectStatsConfig other)
+        {
+            // null 视为全零配置，相加无效果
+            return new ObjectStatsConfig
+            {
+                // 身份/阵营 — 取首个有效值（0/None/-1 视为未设置）
+                Type = Type != ObjectType.None ? Type : (other?.Type ?? ObjectType.None),
+                FactionID = FactionID != 0 ? FactionID : (other?.FactionID ?? 0),
+                TeamID = TeamID != -1 ? TeamID : (other?.TeamID ?? -1),
+                GuildID = GuildID != -1 ? GuildID : (other?.GuildID ?? -1),
+                AllianceID = AllianceID != -1 ? AllianceID : (other?.AllianceID ?? -1),
+                CurrentPVPMode = CurrentPVPMode != PVPMode.None ? CurrentPVPMode : (other?.CurrentPVPMode ?? PVPMode.None),
+
+                // 基础属性 — 全部相加
+                MaxHealth = MaxHealth + (other?.MaxHealth ?? 0f),
+                CurrentHealth = CurrentHealth + (other?.CurrentHealth ?? 0f),
+                PhysicalAttack = PhysicalAttack + (other?.PhysicalAttack ?? 0f),
+                PhysicalDefense = PhysicalDefense + (other?.PhysicalDefense ?? 0f),
+                TrueDamage = TrueDamage + (other?.TrueDamage ?? 0f),
+                MagicAttack = MagicAttack + (other?.MagicAttack ?? 0f),
+                MagicDefense = MagicDefense + (other?.MagicDefense ?? 0f),
+
+                // 速度属性 — 全部相加
+                MoveSpeed = MoveSpeed + (other?.MoveSpeed ?? 0f),
+                AttackSpeed = AttackSpeed + (other?.AttackSpeed ?? 0f),
+                CastSpeed = CastSpeed + (other?.CastSpeed ?? 0f),
+
+                // 暴击属性 — 全部相加
+                CriticalRate = CriticalRate + (other?.CriticalRate ?? 0f),
+                CriticalDamageMultiplier = CriticalDamageMultiplier + (other?.CriticalDamageMultiplier ?? 0f),
+
+                // 穿透属性 — 全部相加
+                ArmorPenetration = ArmorPenetration + (other?.ArmorPenetration ?? 0f),
+                MagicPenetration = MagicPenetration + (other?.MagicPenetration ?? 0f),
+
+                // 恢复属性 — 全部相加
+                HealthRegeneration = HealthRegeneration + (other?.HealthRegeneration ?? 0f),
+                ManaRegeneration = ManaRegeneration + (other?.ManaRegeneration ?? 0f),
+
+                // 特殊属性 — 全部相加
+                MaxMana = MaxMana + (other?.MaxMana ?? 0f),
+                CurrentMana = CurrentMana + (other?.CurrentMana ?? 0f),
+                CooldownReduction = CooldownReduction + (other?.CooldownReduction ?? 0f),
+                EvasionRate = EvasionRate + (other?.EvasionRate ?? 0f),
+                HitRate = HitRate + (other?.HitRate ?? 0f),
+                AttackRange = AttackRange + (other?.AttackRange ?? 0f),
+                VisionRange = VisionRange + (other?.VisionRange ?? 0f),
+                Experience = Experience + (other?.Experience ?? 0f),
+                Level = Level + (other?.Level ?? 0),
+                Gold = Gold + (other?.Gold ?? 0),
+
+                // 伤害配置 — 数值相加，布尔取或
+                DamageRadius = DamageRadius + (other?.DamageRadius ?? 0f),
+                IsContinuousDamage = IsContinuousDamage || (other?.IsContinuousDamage ?? false),
+                DamageDuration = DamageDuration + (other?.DamageDuration ?? 0f),
+                CanDealDamage = CanDealDamage || (other?.CanDealDamage ?? false)
+            };
+        }
+
+        /// <summary>
+        /// 将多个 ObjectStatsConfig 的所有属性叠加，返回合并后的新实例
+        /// 用于不固定个数的攻击方属性合并（如 武器 + 持有者 + Buff1 + Buff2）
+        /// </summary>
+        /// <param name="configs">需要叠加的属性配置数组（null 元素会被跳过）</param>
+        /// <returns>叠加后的新 ObjectStatsConfig 实例</returns>
+        public static ObjectStatsConfig Merge(params ObjectStatsConfig[] configs)
+        {
+            ObjectStatsConfig result = new ObjectStatsConfig();
+
+            if (configs == null)
+            {
+                return result;
+            }
+
+            for (int i = 0; i < configs.Length; i++)
+            {
+                if (configs[i] != null)
+                {
+                    result = result.MergeWith(configs[i]);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 设置当前生命值（自动限制在 [0, MaxHealth] 范围内）
+        /// </summary>
+        /// <param name="health">目标生命值</param>
+        public void SetCurrentHealth(float health)
+        {
+            CurrentHealth = Mathf.Clamp(health, 0f, MaxHealth);
+        }
+
+        /// <summary>
+        /// 设置当前魔法值（自动限制在 [0, MaxMana] 范围内）
+        /// </summary>
+        /// <param name="mana">目标魔法值</param>
+        public void SetCurrentMana(float mana)
+        {
+            CurrentMana = Mathf.Clamp(mana, 0f, MaxMana);
+        }
+
+        /// <summary>
+        /// 设置物理攻击力
+        /// </summary>
+        /// <param name="attack">物理攻击力</param>
+        public void SetPhysicalAttack(float attack)
+        {
+            PhysicalAttack = attack;
+        }
+
+        /// <summary>
+        /// 设置魔法攻击力
+        /// </summary>
+        /// <param name="attack">魔法攻击力</param>
+        public void SetMagicAttack(float attack)
+        {
+            MagicAttack = attack;
+        }
+
+        /// <summary>
+        /// 从源物体继承阵营信息（用于武器/投射物从持有者继承阵营）
+        /// 复制 FactionID/TeamID/GuildID/AllianceID/CurrentPVPMode 五个字段
+        /// </summary>
+        /// <param name="source">阵营信息来源（持有者属性配置）</param>
+        public void InheritFactionFrom(ObjectStatsConfig source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            FactionID = source.FactionID;
+            TeamID = source.TeamID;
+            GuildID = source.GuildID;
+            AllianceID = source.AllianceID;
+            CurrentPVPMode = source.CurrentPVPMode;
+        }
+
+        /// <summary>
+        /// 设置伤害范围（运行时修改 DamageRadius）
+        /// </summary>
+        /// <param name="radius">新的伤害半径（米）</param>
+        public void SetDamageRadius(float radius)
+        {
+            DamageRadius = radius;
+        }
+
+        /// <summary>
+        /// 设置伤害持续时间（运行时修改 DamageDuration）
+        /// </summary>
+        /// <param name="duration">持续时间（秒）</param>
+        public void SetDamageDuration(float duration)
+        {
+            DamageDuration = duration;
         }
 
         #endregion
@@ -1010,7 +1316,7 @@ namespace AFrameWork.Core
     ///   2. 速度属性：
     ///      MoveSpeed(移动速度, 米/秒)
     ///      AttackSpeed(攻击速度, 次/秒)
-    ///      CastSpeed(施法速度倍率)
+    ///      CastSpeed(施法速度, 次/秒，持续伤害间隔=1/CastSpeed)
     ///
     ///   3. 暴击属性：
     ///      CriticalRate(暴击率, 0-1)
@@ -1034,25 +1340,23 @@ namespace AFrameWork.Core
     ///      Experience(经验值), Level(等级), Gold(金币)
     ///
     ///   7. 伤害配置属性（用于投射物、陷阱等）：
-    ///      BaseDamage(基础伤害值)
-    ///      DamageType(伤害类型)
     ///      DamageRadius(范围伤害半径, 米)
-    ///      DamageInterval(持续伤害频率, 秒)
     ///      IsContinuousDamage(是否持续伤害)
     ///      DamageDuration(伤害持续时间, 秒)
     ///      CanDealDamage(是否启用伤害功能)
+    ///      持续伤害频率由 AttackSpeed(物理) 或 CastSpeed(魔法) 控制：interval = 1f / Speed
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【核心方法详解】
     /// ════════════════════════════════════════════════════════════
-    ///   伤害计算方法：
-    ///     CalculatePhysicalDamage(targetDefense) — 物理伤害 = 攻击力 × (100 / (100 + 有效防御))
-    ///       有效防御 = 目标防御 × (1 - 护甲穿透)
-    ///     CalculateMagicDamage(targetDefense)    — 魔法伤害 = 攻击力 × (100 / (100 + 有效防御))
-    ///       有效防御 = 目标防御 × (1 - 魔法穿透)
-    ///     CalculateDamage(targetStats)           — 根据 DamageType 自动选择伤害公式
-    ///       Physical/Magic 走对应公式，True 直接返回 TrueDamage + BaseDamage
-    ///     CalculateDamage(targetStats, multiplier) — 应用 ObjectStatsConfigMultiplier 倍率后计算
+    ///   伤害计算方法（静态，唯一入口，计算与应用分离）：
+    ///     CalculateAttack(multiplier, target, params attackers)
+    ///       — 累加所有攻击方属性 → 闪避 → 伤害计算 → 暴击，返回伤害值（不扣血）
+    ///       物理伤害 = 攻击力 × (100 / (100 + 目标防御 × (1 - 护甲穿透)))
+    ///       魔法伤害 = 攻击力 × (100 / (100 + 目标防御 × (1 - 魔法穿透)))
+    ///       真实伤害 = TrueDamage（无视防御）
+    ///       计算后由调用方调 target.TakeDamage(damage) 应用（保留无敌/回调/死亡）
+    ///       无倍率时传 new ObjectStatsConfigMultiplier()
     ///
     ///   暴击和闪避方法：
     ///     IsCriticalHit()             — Random.value &lt; CriticalRate
@@ -1117,7 +1421,6 @@ namespace AFrameWork.Core
     ///     PhysicalAttackMultiplier   — 物理攻击倍率
     ///     MagicAttackMultiplier      — 魔法攻击倍率
     ///     TrueDamageMultiplier       — 真实伤害倍率
-    ///     BaseDamageMultiplier       — 基础伤害倍率
     ///     CriticalRateMultiplier     — 暴击率倍率
     ///     CriticalDamageMultiplier   — 暴击伤害倍率的倍率
     ///     ArmorPenetrationMultiplier — 护甲穿透倍率
@@ -1136,7 +1439,7 @@ namespace AFrameWork.Core
     ///   使用场景：
     ///     - 在 AnimationConfig.Multiplier 中配置，TryStartAttack 时传递给 OnAttackStarted
     ///     - 武器系统（如 Sword）通过 BeginSwing(multiplier) 接收，碰撞时用于伤害计算
-    ///     - CalculateDamage(target, multiplier) 重载自动应用倍率
+    ///     - CalculateAttack(multiplier, target, attackers) 静态方法自动应用倍率
     ///
     /// ────────────────────────────────────────────────────────────
     /// 示例 1：战士属性配置（物理输出型）
@@ -1201,7 +1504,7 @@ namespace AFrameWork.Core
     /// </code>
     ///
     /// ────────────────────────────────────────────────────────────
-    /// 示例 4：投射物配置（范围持续伤害）
+    /// 示例 4：投射物配置（范围持续魔法伤害）
     /// ────────────────────────────────────────────────────────────
     /// <code>
     /// protected override ObjectStatsConfig ObjectStatsConfig =&gt; new ObjectStatsConfig
@@ -1210,11 +1513,10 @@ namespace AFrameWork.Core
     ///     FactionID = 100,                  // 中立阵营
     ///     MaxHealth = 1f,                   // 投射物本身只有 1 点生命
     ///     CurrentHealth = 1f,
-    ///     MagicAttack = 15f,
-    ///     BaseDamage = 10f,
-    ///     DamageType = DamageType.Magic,
+    ///     MagicAttack = 25f,                // 魔法攻击力（替代 BaseDamage + DamageType.Magic）
+    ///     CastSpeed = 2f,                   // 施法频率 2次/秒，即每 0.5 秒一次（替代 DamageInterval）
+    ///     MagicPenetration = 0.2f,
     ///     DamageRadius = 5f,                // 伤害范围 5 米
-    ///     DamageInterval = 0.5f,            // 每 0.5 秒造成一次伤害
     ///     IsContinuousDamage = true,        // 持续伤害
     ///     DamageDuration = 10f,             // 持续 10 秒
     ///     CanDealDamage = true
@@ -1222,16 +1524,14 @@ namespace AFrameWork.Core
     /// </code>
     ///
     /// ────────────────────────────────────────────────────────────
-    /// 示例 5：陷阱配置（单次物理伤害）
+    /// 示例 5：陷阱配置（单次真实伤害）
     /// ────────────────────────────────────────────────────────────
     /// <code>
     /// protected override ObjectStatsConfig ObjectStatsConfig =&gt; new ObjectStatsConfig
     /// {
     ///     Type = ObjectType.Trap,
     ///     FactionID = 100,
-    ///     BaseDamage = 50f,
-    ///     DamageType = DamageType.True,     // 真实伤害（无视防御）
-    ///     TrueDamage = 50f,
+    ///     TrueDamage = 50f,                // 真实伤害（无视防御，替代 BaseDamage + DamageType.True）
     ///     DamageRadius = 2f,
     ///     IsContinuousDamage = false,       // 单次伤害
     ///     CanDealDamage = true
@@ -1239,7 +1539,7 @@ namespace AFrameWork.Core
     /// </code>
     ///
     /// ────────────────────────────────────────────────────────────
-    /// 示例 6：伤害计算与战斗流程
+    /// 示例 6：伤害计算与战斗流程（CalculateAttack 计算与 TakeDamage 应用分离）
     /// ────────────────────────────────────────────────────────────
     /// <code>
     /// // 获取双方的属性配置
@@ -1252,25 +1552,25 @@ namespace AFrameWork.Core
     ///     return;  // 友方不能伤害
     /// }
     ///
-    /// // 2. 闪避判定
-    /// if (targetStats.IsEvaded(attackerStats.HitRate))
+    /// // 2. 计算伤害（静态方法：累加攻击 → 闪避 → 防御减免 → 暴击，不扣血）
+    /// float damage = ObjectStatsConfig.CalculateAttack(
+    ///     new ObjectStatsConfigMultiplier(), targetStats, attackerStats);
+    /// if (damage &lt;= 0f)
     /// {
     ///     Debug.Log("攻击被闪避！");
     ///     return;
     /// }
     ///
-    /// // 3. 计算基础伤害（考虑防御和穿透）
-    /// float damage = attackerStats.CalculateDamage(targetStats);
-    ///
-    /// // 4. 暴击判定
-    /// if (attackerStats.IsCriticalHit())
-    /// {
-    ///     damage = attackerStats.GetCriticalDamage(damage);
-    ///     Debug.Log($"触发暴击！伤害 {damage}");
-    /// }
-    ///
-    /// // 5. 造成伤害
+    /// // 3. 应用伤害（经 ObjectBase.TakeDamage 保留无敌/回调/死亡）
     /// target.TakeDamage(damage);
+    ///
+    /// // —— 武器场景：传入武器 + 持有者，params 累加后计算 ——
+    /// // float dmg = ObjectStatsConfig.CalculateAttack(multiplier, targetStats, weaponStats, holderStats);
+    /// // target.TakeDamage(dmg);
+    /// ///
+    /// // —— 多对象场景（武器 + 持有者 + Buff）：params 可变参数 ——
+    /// // float dmg = ObjectStatsConfig.CalculateAttack(multiplier, targetStats, weaponStats, holderStats, buffStats);
+    /// // target.TakeDamage(dmg);
     /// </code>
     ///
     /// ────────────────────────────────────────────────────────────

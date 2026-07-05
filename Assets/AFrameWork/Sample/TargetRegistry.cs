@@ -258,8 +258,7 @@ namespace AFrameWork.Sample
     ///         SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(
     ///             position: transform.position,
     ///             direction: dir,
-    ///             owner: this,
-    ///             damage: GetObjectStats().PhysicalAttack
+    ///             owner: this
     ///         );
     ///     }
     /// }

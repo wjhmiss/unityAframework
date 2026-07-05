@@ -8,7 +8,8 @@ namespace AFrameWork.Core.SmallBase
     ///
     /// 设计目标（对应优化方案 A/B/C/E）：
     ///   - 方案 B：脱离 ObjectBase，避免 PlayableGraph/动画槽位/组件缓存字典等无关开销
-    ///   - 方案 C：owner 阵营信息以 int 字段直接存储，避免每次访问 ObjectStatsConfig 属性产生 GC
+    ///   - 方案 C：owner 阵营信息以 int 字段直接存储，阵营判定热路径无 GC；
+    ///             战斗属性通过 Clone 快照在发射时锁定，命中时复用完整伤害公式
     ///   - 方案 A：提供 OnGetFromPool/OnReleaseToPool 钩子，配合 SimpleObjectPool 的 ObjectPool 复用
     ///   - 方案 E：以 Tick(deltaTime) 取代 MonoBehaviour.Update，由 SimpleObjectPool 单点批量驱动
     ///
@@ -21,10 +22,11 @@ namespace AFrameWork.Core.SmallBase
     /// 扩展示例（新增 Arrow）：
     ///   1. public class Arrow : SimpleObjectBase { SetupCollider→Capsule; Tick→寿命+下坠; ConfigureParameters→速度 }
     ///   2. SimpleObjectPool.Instance.RegisterPrefab&lt;Arrow&gt;(arrowPrefab, prewarm:20);
-    ///   3. SimpleObjectPool.Instance.Launch&lt;Arrow&gt;(pos, dir, owner, damage);
+    ///   3. SimpleObjectPool.Instance.Launch&lt;Arrow&gt;(pos, dir, owner);
     ///
-    /// 阵营判定镜像 ObjectStatsConfig.CanDealDamageTo，使用存储的 owner 字段比较，
-    /// 命中时仅读取 target 的 ObjectStatsConfig（已缓存于 target 侧，无 GC）。
+    /// 阵营判定镜像 ObjectStatsConfig.CanDealDamageTo，使用存储的 owner int 字段比较，命中热路径无 GC。
+    /// 伤害计算委托 ObjectStatsConfig.CalculateAttack（暴击/闪避/穿透/防御减免），
+    /// 通过 ObjectBase.TakeDamage 应用以保留无敌检查/OnDamaged/OnDeath。
     /// </summary>
     public abstract class SimpleObjectBase : MonoBehaviour
     {
@@ -61,11 +63,19 @@ namespace AFrameWork.Core.SmallBase
         protected int m_ownerAllianceID = -1;
         protected PVPMode m_ownerPVPMode = PVPMode.None;
 
-        // ===== 伤害参数（发射时预计算，命中时应用防御） =====
-        protected float m_damage;
-        protected DamageType m_damageType = DamageType.Physical;
-        protected float m_armorPenetration;
-        protected float m_magicPenetration;
+        // ===== Owner 属性快照（发射时克隆，命中时用于完整伤害计算：暴击/闪避/穿透/防御减免） =====
+        // 持有快照而非活引用：避免 owner 销毁后 fake-null，且发射时属性锁定可预测
+        protected ObjectStatsConfig m_attackerStats;
+
+        /// <summary>
+        /// 子弹类型共享属性（所有实例公用一个）。子类重写返回 static readonly 实例。
+        /// 命中时与 m_attackerStats（owner 克隆）一起传给 CalculateAttack 累加（类似 Sword 的武器+持有者）。
+        /// 默认 null：只使用 owner 克隆（向后兼容）。
+        /// </summary>
+        protected virtual ObjectStatsConfig SharedStats => null;
+
+        // 2 攻击方 CalculateAttack 复用数组（OnTriggerEnter 单线程，无并发风险；避免 params 数组分配）
+        private static readonly ObjectStatsConfig[] s_twoAttackerBuffer = new ObjectStatsConfig[2];
 
         // ===== 池生命周期标志 =====
         // 是否仍处于活跃状态（false 时由 Pool 回收）
@@ -140,15 +150,15 @@ namespace AFrameWork.Core.SmallBase
         #region 初始化（由 SimpleObjectPool 在 Get 后调用）
 
         /// <summary>
-        /// 初始化：位置、方向、Owner 阵营、伤害参数。
+        /// 初始化：位置、方向、Owner 属性快照（含阵营与战斗属性）。
         /// 由 Pool 在从池中取出后立即调用。
+        /// 伤害参数不再由调用方传入，而是克隆 owner 的 ObjectStatsConfig 作为快照，
+        /// 命中时通过 ObjectStatsConfig.CalculateAttack 走完整伤害公式（暴击/闪避/穿透/防御减免）。
         /// </summary>
         public virtual void Initialize(
             Vector3 position,
             Vector3 direction,
-            ObjectBase owner,
-            float damage,
-            DamageType damageType = DamageType.Physical)
+            ObjectBase owner)
         {
             // 重置位置与朝向（子弹模型默认朝上 +Y，旋转使其朝向飞行方向）
             transform.position = position;
@@ -159,12 +169,9 @@ namespace AFrameWork.Core.SmallBase
 
             m_moveDirection = direction.normalized;
             m_startPosition = position;
-            m_damage = damage;
-            m_damageType = damageType;
-            m_armorPenetration = 0f;
-            m_magicPenetration = 0f;
 
-            // 继承 Owner 阵营信息（直接读 int 字段，避免持有 ObjectStatsConfig 引用）
+            // 继承 Owner 阵营信息（int 字段，用于 CanDealDamageTo 镜像判定，命中热路径无 GC）
+            // 同时克隆一份 ObjectStatsConfig 快照用于完整伤害计算
             if (owner != null && owner.HasObjectStats())
             {
                 ObjectStatsConfig ownerStats = owner.GetObjectStats();
@@ -174,9 +181,9 @@ namespace AFrameWork.Core.SmallBase
                 m_ownerAllianceID = ownerStats.AllianceID;
                 m_ownerPVPMode = ownerStats.CurrentPVPMode;
 
-                // 继承穿透属性，使命中时能正确计算防御减免
-                m_armorPenetration = ownerStats.ArmorPenetration;
-                m_magicPenetration = ownerStats.MagicPenetration;
+                // 克隆 owner 属性快照：发射时锁定攻击/穿透/暴击/命中等战斗属性，
+                // owner 后续 buff/装备变化不影响已发射的投射物，且 owner 销毁后仍可安全读取
+                m_attackerStats = ownerStats.Clone();
             }
             else
             {
@@ -185,6 +192,7 @@ namespace AFrameWork.Core.SmallBase
                 m_ownerGuildID = -1;
                 m_ownerAllianceID = -1;
                 m_ownerPVPMode = PVPMode.None;
+                m_attackerStats = null;
             }
 
             // 子类覆盖运动参数
@@ -232,6 +240,9 @@ namespace AFrameWork.Core.SmallBase
             m_isAlive = false;
             m_isInitialized = false;
 
+            // 释放 owner 属性快照引用（下次 Initialize 会重新 Clone）
+            m_attackerStats = null;
+
             if (m_rigidbody != null)
             {
                 m_rigidbody.velocity = Vector3.zero;
@@ -268,11 +279,37 @@ namespace AFrameWork.Core.SmallBase
             ObjectStatsConfig targetStats = target.GetObjectStats();
             if (targetStats.IsDead()) return;
 
-            // 阵营判定（使用存储的 owner 字段，无 GC）
+            // 阵营判定（使用存储的 owner int 字段，命中热路径无 GC）
             if (!CanDealDamageTo(targetStats)) return;
 
-            // 计算最终伤害（应用目标防御与穿透）
-            float finalDamage = CalculateFinalDamage(targetStats);
+            // 计算最终伤害（完整公式：累加攻击/穿透 → 闪避 → 防御减免 → 暴击，不扣血）
+            // CalculateAttack 是唯一伤害计算入口，与 TakeDamage 分离避免重复扣血
+            // 子类可重写 SharedStats 提供子弹自身属性，与 owner 克隆累加（类似 Sword 的武器+持有者）
+            ObjectStatsConfig sharedStats = SharedStats;
+            float finalDamage;
+
+            if (sharedStats != null)
+            {
+                // 子弹共享属性 + owner 克隆（CalculateAttack 内部跳过 null 攻击方）
+                // 用 s_twoAttackerBuffer 避免 params 数组分配
+                s_twoAttackerBuffer[0] = sharedStats;
+                s_twoAttackerBuffer[1] = m_attackerStats;
+                finalDamage = ObjectStatsConfig.CalculateAttack(
+                    new ObjectStatsConfigMultiplier(), targetStats, s_twoAttackerBuffer);
+            }
+            else if (m_attackerStats != null)
+            {
+                // 仅 owner 克隆（向后兼容：子类未重写 SharedStats）
+                finalDamage = ObjectStatsConfig.CalculateAttack(
+                    new ObjectStatsConfigMultiplier(), targetStats, m_attackerStats);
+            }
+            else
+            {
+                // 无任何攻击方属性（owner 无属性且子类无 SharedStats），子弹穿过不回收
+                return;
+            }
+
+            // 通过 ObjectBase.TakeDamage 应用：保留无敌检查、OnDamaged 回调、OnDeath 处理
             target.TakeDamage(finalDamage);
 
             OnHit(target, finalDamage);
@@ -283,33 +320,14 @@ namespace AFrameWork.Core.SmallBase
 
         #endregion
 
-        #region 伤害计算（无 GC，使用预存伤害值 + 目标防御）
+        #region 伤害计算（委托 ObjectStatsConfig.CalculateAttack，完整公式）
 
-        /// <summary>
-        /// 根据伤害类型应用目标防御减免。
-        /// m_damage 在发射时由 owner 攻击力预计算，此处仅做防御端减免。
-        /// </summary>
-        protected virtual float CalculateFinalDamage(ObjectStatsConfig targetStats)
-        {
-            if (targetStats == null) return m_damage;
-
-            switch (m_damageType)
-            {
-                case DamageType.Physical:
-                {
-                    float effectiveDefense = targetStats.PhysicalDefense * (1f - m_armorPenetration);
-                    return m_damage * (100f / (100f + effectiveDefense));
-                }
-                case DamageType.Magic:
-                {
-                    float effectiveDefense = targetStats.MagicDefense * (1f - m_magicPenetration);
-                    return m_damage * (100f / (100f + effectiveDefense));
-                }
-                case DamageType.True:
-                default:
-                    return m_damage;
-            }
-        }
+        // 伤害计算已委托给 ObjectStatsConfig.CalculateAttack（静态）：
+        //   累加攻击方属性 → 闪避判定 → 防御减免 → 暴击判定
+        // 子类无需重写；如需自定义伤害公式，重写 OnTriggerEnter 并自行调用计算方法即可。
+        // m_attackerStats 在 Initialize 时由 owner.ObjectStatsConfig.Clone() 创建，
+        // 包含 PhysicalAttack/MagicAttack/TrueDamage/ArmorPenetration/MagicPenetration/
+        // CriticalRate/CriticalDamageMultiplier/HitRate 等完整战斗属性。
 
         #endregion
 
@@ -440,7 +458,8 @@ namespace AFrameWork.Core.SmallBase
     ///     ConfigureParameters()      — 覆盖默认运动参数（m_speed / m_maxDistanceSqr）
     ///     Initialize(...)            — 默认实现已完整，仅在需扩展初始化时重写
     ///     OnGetFromPool() / OnReleaseToPool() — 池生命周期钩子，默认实现已处理状态重置
-    ///     CalculateFinalDamage(target)        — 自定义伤害减免公式
+    ///     CalculateAttack(...)          — 伤害计算委托 ObjectStatsConfig 静态方法，子类一般无需重写；
+    ///                                           如需自定义公式可重写 OnTriggerEnter 自行调用
     ///     CanDealDamageTo(target) / GetFactionRelation(targetID) — 自定义阵营判定
     ///
     /// ════════════════════════════════════════════════════════════
@@ -472,11 +491,10 @@ namespace AFrameWork.Core.SmallBase
     ///     m_ownerAllianceID — 同盟 ID（-1=无）
     ///     m_ownerPVPMode    — PVP 模式
     ///
-    ///   伤害参数（发射时预计算）：
-    ///     m_damage             — 基础伤害值
-    ///     m_damageType         — 伤害类型（Physical/Magic/True）
-    ///     m_armorPenetration   — 护甲穿透（0-1）
-    ///     m_magicPenetration    — 魔法穿透（0-1）
+    ///   伤害参数（发射时克隆 owner 属性快照）：
+    ///     m_attackerStats — owner 的 ObjectStatsConfig 克隆（含攻击/穿透/暴击/命中/闪避等）
+    ///                      命中时作为 attacker 传入 CalculateAttack，走完整伤害公式
+    ///                      持有快照而非活引用：owner 销毁后仍可安全读取，发射后属性锁定可预测
     ///
     ///   池生命周期标志：
     ///     m_isAlive       — 是否仍活跃（false 时由 Pool 回收）
@@ -488,15 +506,14 @@ namespace AFrameWork.Core.SmallBase
     ///   由 SimpleObjectPool 在从池中取出后立即调用：
     ///     1. 设置 transform.position 与 rotation（朝向飞行方向）
     ///     2. 归一化方向并记录 m_startPosition
-    ///     3. 重置伤害参数（m_damage / m_damageType / 穿透属性）
-    ///     4. 从 owner 的 ObjectStatsConfig 继承阵营信息（int 字段，避免持有引用）
-    ///     5. 继承 owner 的护甲/魔法穿透属性（使命中时正确计算防御减免）
-    ///     6. 调用 ConfigureParameters() 让子类覆盖运动参数
-    ///     7. 同步 Rigidbody 位置/朝向并应用初速度
+    ///     3. 从 owner 的 ObjectStatsConfig 继承阵营信息（int 字段，用于 CanDealDamageTo 镜像判定）
+    ///     4. 克隆 owner 的 ObjectStatsConfig 到 m_attackerStats（锁定攻击/穿透/暴击/命中等战斗属性）
+    ///     5. 调用 ConfigureParameters() 让子类覆盖运动参数
+    ///     6. 同步 Rigidbody 位置/朝向并应用初速度
     ///        （必须显式同步以清除插值缓冲，否则池复用首帧方向错误）
-    ///     8. 设置 m_isInitialized=true 和 m_isAlive=true
+    ///     7. 设置 m_isInitialized=true 和 m_isAlive=true
     ///
-    ///   注意：owner 为 null 时阵营信息清零（FactionID=0, TeamID=-1 等）
+    ///   注意：owner 为 null 或无属性时阵营信息清零（FactionID=0, TeamID=-1 等），m_attackerStats=null
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【池生命周期钩子】
@@ -509,6 +526,7 @@ namespace AFrameWork.Core.SmallBase
     ///
     ///   OnReleaseToPool()：
     ///     - m_isAlive=false, m_isInitialized=false
+    ///     - 清空 m_attackerStats 引用（下次 Initialize 会重新 Clone）
     ///     - 清零 Rigidbody 速度与角速度
     ///     - 停用 GameObject（SetActive(false)）
     ///
@@ -527,22 +545,38 @@ namespace AFrameWork.Core.SmallBase
     ///     3. TryGetComponent&lt;ObjectBase&gt; 获取目标，失败则返回
     ///     4. target.HasObjectStats() 检查，无属性则返回
     ///     5. targetStats.IsDead() 检查，已死亡则返回
-    ///     6. CanDealDamageTo(targetStats) 阵营判定，友方则返回
-    ///     7. CalculateFinalDamage(targetStats) 计算最终伤害（含防御减免）
-    ///     8. target.TakeDamage(finalDamage) 应用伤害
-    ///     9. OnHit(target, finalDamage) 回调子类播放命中特效
-    ///     10. Deactivate() 请求回收
+    ///     6. CanDealDamageTo(targetStats) 阵营判定，友方则返回（子弹穿过不回收）
+    ///     7. 攻击方属性检查：
+    ///        - SharedStats != null（子类重写）：子弹共享属性 + owner 克隆一起传入（2 攻击方累加）
+    ///        - SharedStats == null 且 m_attackerStats != null：仅 owner 克隆（向后兼容）
+    ///        - 两者都为 null：子弹穿过不回收（owner 无属性且子类无共享属性）
+    ///     8. CalculateAttack(new ObjectStatsConfigMultiplier(), targetStats, attackers...) 计算最终伤害
+    ///        （完整公式：累加所有攻击方属性 → 闪避 → 防御减免 → 暴击；被闪避返回 0，不扣血）
+    ///     9. target.TakeDamage(finalDamage) 应用伤害（经 ObjectBase.TakeDamage 保留无敌/回调/死亡）
+    ///     10. OnHit(target, finalDamage) 回调子类播放命中特效
+    ///     11. Deactivate() 请求回收
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【伤害计算公式】
     /// ════════════════════════════════════════════════════════════
-    ///   CalculateFinalDamage(targetStats) 根据 m_damageType 选择公式：
-    ///     Physical：m_damage × (100 / (100 + 目标物防 × (1 - m_armorPenetration)))
-    ///     Magic   ：m_damage × (100 / (100 + 目标魔防 × (1 - m_magicPenetration)))
-    ///     True    ：m_damage（无视防御）
+    ///   委托 ObjectStatsConfig.CalculateAttack(new ObjectStatsConfigMultiplier(), targetStats, attackers)：
+    ///   攻击方来源（按子类是否重写 SharedStats）：
+    ///     - SharedStats（子类 static readonly）：子弹自身基础属性，所有实例共享，零 GC
+    ///     - m_attackerStats（owner 克隆）：发射时锁定的 owner 战斗属性快照
+    ///     两者同时存在时累加（类似 Sword 的武器+持有者），不存在时单独使用或跳过
     ///
-    ///   注意：m_damage 在发射时由 owner 攻击力预计算，此处仅做防御端减免
-    ///        穿透属性从 owner 继承（Initialize 中赋值）
+    ///     1. 累加攻击方属性（PhysicalAttack / MagicAttack / TrueDamage / 穿透 / 暴击 / 命中）
+    ///     2. 闪避判定（目标 EvasionRate vs 攻击方累加 HitRate，闪避返回 0）
+    ///     3. 防御减免：
+    ///        Physical：PhysicalAttack × (100 / (100 + 目标物防 × (1 - ArmorPenetration)))
+    ///        Magic   ：MagicAttack × (100 / (100 + 目标魔防 × (1 - MagicPenetration)))
+    ///        True    ：TrueDamage（无视防御）
+    ///        三种伤害累加（与单一 DamageType 的旧实现不同，现在一发子弹可同时造成多类型伤害）
+    ///     4. 暴击判定（Random.value &lt; 累加 CriticalRate → 伤害 × CriticalDamageMultiplier）
+    ///
+    ///   注意：CalculateAttack 只计算伤害不扣血，由 target.TakeDamage 应用。
+    ///        这样分离计算与应用，避免重复扣血风险。
+    ///        m_attackerStats 为发射时 Clone 的快照，owner 后续 buff/装备变化不影响已发射投射物。
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【阵营判定规则】
@@ -620,13 +654,11 @@ namespace AFrameWork.Core.SmallBase
     /// // 1. 在 Addressables Groups 中为预制体添加 "PoolObjects" label
     /// //    预制体根节点必须挂载 SimpleObjectBase 子类组件
     /// // 2. SimpleObjectPool.Instance.Start 时自动注册
-    /// // 3. 发射：
+    /// // 3. 发射（伤害由 owner 的 ObjectStatsConfig 自动克隆，无需传入 damage/damageType）：
     /// Bullet bullet = SimpleObjectPool.Instance.Launch&lt;Bullet&gt;(
     ///     position: spawnPos,
     ///     direction: targetDir,
-    ///     owner: shooter,
-    ///     damage: shooterStats.PhysicalAttack,
-    ///     damageType: DamageType.Physical
+    ///     owner: shooter
     /// );
     /// </code>
     ///
@@ -653,10 +685,9 @@ namespace AFrameWork.Core.SmallBase
     ///
     ///     public override void Initialize(
     ///         Vector3 position, Vector3 direction,
-    ///         ObjectBase owner, float damage,
-    ///         DamageType damageType = DamageType.Physical)
+    ///         ObjectBase owner)
     ///     {
-    ///         base.Initialize(position, direction, owner, damage, damageType);
+    ///         base.Initialize(position, direction, owner);
     ///         m_target = FindNearestEnemy(position, m_ownerFactionID);
     ///     }
     ///
@@ -668,6 +699,26 @@ namespace AFrameWork.Core.SmallBase
     ///             m_rigidbody.velocity = newDir * m_speed;
     ///         }
     ///         // ... 超距检测 ...
+    ///     }
+    /// }
+    /// </code>
+    ///
+    /// ────────────────────────────────────────────────────────────
+    /// 示例 5：固定伤害技能子弹（覆盖克隆的攻击属性）
+    /// ────────────────────────────────────────────────────────────
+    /// <code>
+    /// public class FixedDamageBullet : Bullet
+    /// {
+    ///     public override void Initialize(Vector3 position, Vector3 direction, ObjectBase owner)
+    ///     {
+    ///         base.Initialize(position, direction, owner);
+    ///         // 覆盖克隆快照的攻击属性为固定值，忽略 owner 的攻击力
+    ///         if (m_attackerStats != null)
+    ///         {
+    ///             m_attackerStats.PhysicalAttack = 50f;
+    ///             m_attackerStats.MagicAttack = 0f;
+    ///             m_attackerStats.TrueDamage = 0f;
+    ///         }
     ///     }
     /// }
     /// </code>

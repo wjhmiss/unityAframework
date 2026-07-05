@@ -420,49 +420,12 @@ namespace AFrameWork.Core
         }
 
         /// <summary>
-        /// 复制物体属性配置（用于创建运行时实例）
+        /// 复制物体属性配置（用于创建运行时实例）。
+        /// 委托给 ObjectStatsConfig.CopyTo，字段列表集中维护避免重复。
         /// </summary>
         private void CopyObjectStatsConfig(ObjectStatsConfig source, ObjectStatsConfig target)
         {
-            target.Type = source.Type;
-            target.FactionID = source.FactionID;
-            target.TeamID = source.TeamID;
-            target.GuildID = source.GuildID;
-            target.AllianceID = source.AllianceID;
-            target.CurrentPVPMode = source.CurrentPVPMode;
-            target.MaxHealth = source.MaxHealth;
-            target.CurrentHealth = source.CurrentHealth;
-            target.PhysicalAttack = source.PhysicalAttack;
-            target.PhysicalDefense = source.PhysicalDefense;
-            target.TrueDamage = source.TrueDamage;
-            target.MagicAttack = source.MagicAttack;
-            target.MagicDefense = source.MagicDefense;
-            target.MoveSpeed = source.MoveSpeed;
-            target.AttackSpeed = source.AttackSpeed;
-            target.CastSpeed = source.CastSpeed;
-            target.CriticalRate = source.CriticalRate;
-            target.CriticalDamageMultiplier = source.CriticalDamageMultiplier;
-            target.ArmorPenetration = source.ArmorPenetration;
-            target.MagicPenetration = source.MagicPenetration;
-            target.HealthRegeneration = source.HealthRegeneration;
-            target.ManaRegeneration = source.ManaRegeneration;
-            target.MaxMana = source.MaxMana;
-            target.CurrentMana = source.CurrentMana;
-            target.CooldownReduction = source.CooldownReduction;
-            target.EvasionRate = source.EvasionRate;
-            target.HitRate = source.HitRate;
-            target.AttackRange = source.AttackRange;
-            target.VisionRange = source.VisionRange;
-            target.Experience = source.Experience;
-            target.Level = source.Level;
-            target.Gold = source.Gold;
-            target.BaseDamage = source.BaseDamage;
-            target.DamageType = source.DamageType;
-            target.DamageRadius = source.DamageRadius;
-            target.DamageInterval = source.DamageInterval;
-            target.IsContinuousDamage = source.IsContinuousDamage;
-            target.DamageDuration = source.DamageDuration;
-            target.CanDealDamage = source.CanDealDamage;
+            source.CopyTo(target);
         }
 
         #endregion
@@ -721,13 +684,13 @@ namespace AFrameWork.Core
         }
 
         /// <summary>
-        /// 设置当前生命值
+        /// 设置当前生命值（委托给 ObjectStatsConfig 处理）
         /// </summary>
         public void SetCurrentHealth(float health)
         {
             if (m_objectStats != null)
             {
-                m_objectStats.CurrentHealth = Mathf.Clamp(health, 0f, m_objectStats.MaxHealth);
+                m_objectStats.SetCurrentHealth(health);
             }
         }
 
@@ -756,13 +719,13 @@ namespace AFrameWork.Core
         }
 
         /// <summary>
-        /// 设置当前魔法值
+        /// 设置当前魔法值（委托给 ObjectStatsConfig 处理）
         /// </summary>
         public void SetCurrentMana(float mana)
         {
             if (m_objectStats != null)
             {
-                m_objectStats.CurrentMana = Mathf.Clamp(mana, 0f, m_objectStats.MaxMana);
+                m_objectStats.SetCurrentMana(mana);
             }
         }
 
@@ -821,13 +784,13 @@ namespace AFrameWork.Core
         }
 
         /// <summary>
-        /// 设置物理攻击力
+        /// 设置物理攻击力（委托给 ObjectStatsConfig 处理）
         /// </summary>
         public void SetPhysicalAttack(float attack)
         {
             if (m_objectStats != null)
             {
-                m_objectStats.PhysicalAttack = attack;
+                m_objectStats.SetPhysicalAttack(attack);
             }
         }
 
@@ -840,13 +803,13 @@ namespace AFrameWork.Core
         }
 
         /// <summary>
-        /// 设置魔法攻击力
+        /// 设置魔法攻击力（委托给 ObjectStatsConfig 处理）
         /// </summary>
         public void SetMagicAttack(float attack)
         {
             if (m_objectStats != null)
             {
-                m_objectStats.MagicAttack = attack;
+                m_objectStats.SetMagicAttack(attack);
             }
         }
 
@@ -2941,11 +2904,10 @@ namespace AFrameWork.Core
     ///     {
     ///         Type = ObjectType.Trap,
     ///         FactionID = 100,
-    ///         BaseDamage = 10f,
-    ///         DamageType = DamageType.Magic,
+    ///         MagicAttack = 10f,
+    ///         CastSpeed = 2f,
     ///         DamageRadius = 5f,
-    ///         IsContinuousDamage = true,
-    ///         DamageInterval = 0.5f
+    ///         IsContinuousDamage = true
     ///     };
     ///
     ///     protected override void SetupComponents()

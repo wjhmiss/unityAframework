@@ -37,7 +37,7 @@ namespace AFrameWork.Sample
         private static readonly AnimationConfig k_attack = new AnimationConfig
         {
             ClipKey = "NPC01_ATTACK",
-            Multiplier = new ObjectStatsConfigMultiplier(baseDamageMultiplier: 1.0f)
+            Multiplier = new ObjectStatsConfigMultiplier(physicalAttackMultiplier: 1.0f)
         };
 
         // 受击动画（不循环）
@@ -125,37 +125,7 @@ namespace AFrameWork.Sample
             decelerationRate: 50f
         );
 
-        protected override ObjectStatsConfig ObjectStatsConfig => new ObjectStatsConfig
-        {
-            Type = ObjectType.Tank,
-            FactionID = 11,  // 怪物阵营 (k_monsterFactionMinID=11, k_monsterFactionMaxID=50)
-            MaxHealth = 100f,
-            CurrentHealth = 100f,
-            PhysicalAttack = 15f,
-            PhysicalDefense = 10f,
-            TrueDamage = 3f,
-            MagicAttack = 5f,
-            MagicDefense = 8f,
-            MoveSpeed = 4f,
-            AttackSpeed = 1.0f,
-            CastSpeed = 1.0f,
-            CriticalRate = 0.1f,
-            CriticalDamageMultiplier = 2.0f,
-            ArmorPenetration = 0.1f,
-            MagicPenetration = 0.05f,
-            HealthRegeneration = 1f,
-            ManaRegeneration = 1f,
-            MaxMana = 50f,
-            CurrentMana = 50f,
-            CooldownReduction = 0.05f,
-            EvasionRate = 0.03f,
-            HitRate = 0.9f,
-            AttackRange = 2f,
-            VisionRange = 10f,
-            Experience = 0f,
-            Level = 1,
-            Gold = 0
-        };
+        protected override ObjectStatsConfig ObjectStatsConfig => ObjectStatsConfig.CreateMonster();
 
         #endregion
 
@@ -464,13 +434,15 @@ namespace AFrameWork.Sample
             if (sqrDist > maxRange * maxRange) return;
 
             // 获取目标 ObjectBase 并造成伤害
-            if (m_target.TryGetComponent<ObjectBase>(out ObjectBase target))
+            // CalculateAttack 计算伤害（不扣血），target.TakeDamage 应用（保留无敌/回调/死亡）
+            if (m_target.TryGetComponent<ObjectBase>(out ObjectBase target) && target.HasObjectStats())
             {
-                float damage = ObjectStatsConfig.PhysicalAttack;
+                float damage = ObjectStatsConfig.CalculateAttack(
+                    new ObjectStatsConfigMultiplier(), target.GetObjectStats(), ObjectStatsConfig);
                 target.TakeDamage(damage);
 
 #if UNITY_EDITOR
-                // Debug.Log($"[{GetType().Name}] 攻击 {target.name}，造成 {damage} 点伤害", this);
+                // Debug.Log($"[{GetType().Name}] 攻击 {target.name}", this);
 #endif
             }
         }

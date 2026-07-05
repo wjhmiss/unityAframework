@@ -424,8 +424,9 @@ namespace AFrameWork.Core
     /// bool canDamage = attacker.CanDealDamageTo(target);
     /// if (canDamage)
     /// {
-    ///     float damage = attacker.CalculateDamage(target);
-    ///     target.TakeDamage(damage);
+    ///     float damage = ObjectStatsConfig.CalculateAttack(
+    ///         new ObjectStatsConfigMultiplier(), target, attacker);
+    ///     target.TakeDamage(damage);  // 需通过 ObjectBase.TakeDamage 应用
     /// }
     /// </code>
     ///
