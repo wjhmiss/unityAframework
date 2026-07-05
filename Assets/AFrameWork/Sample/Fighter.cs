@@ -257,7 +257,7 @@ namespace AFrameWork.Sample
 
             // 恢复属性
             HealthRegeneration = 2f,
-            ManaRegeneration = 1.5f,
+            ManaRegeneration = 3f,
 
             // 特殊属性
             MaxMana = 80f,

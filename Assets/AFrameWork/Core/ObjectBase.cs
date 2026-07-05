@@ -274,6 +274,11 @@ namespace AFrameWork.Core
         // 避免基类移动逻辑覆盖子类直接设置的 Rigidbody.velocity
         protected bool m_isMovementLocked = false;
 
+        // ===== 属性恢复字段 =====
+        // 恢复计时器，每 k_regenInterval 秒触发一次恢复
+        private float m_regenTimer = 0f;
+        private const float k_regenInterval = 1f;
+
         #endregion
 
         #region 配置属性
@@ -331,6 +336,9 @@ namespace AFrameWork.Core
 
             // 处理输入
             HandleInput();
+
+            // 属性恢复（生命值/魔法值每秒恢复）
+            HandleRegeneration();
 
             // 更新动画过渡权重（CrossFade）
             UpdateAnimationCrossFade();
@@ -491,6 +499,45 @@ namespace AFrameWork.Core
             else
             {
                 m_movementInput = Vector3.zero;
+            }
+        }
+
+        /// <summary>
+        /// 处理属性恢复（生命值/魔法值）。
+        /// 每 k_regenInterval 秒按恢复速度恢复一次，恢复速度为 0 时跳过。
+        /// </summary>
+        private void HandleRegeneration()
+        {
+            if (m_objectStats == null || m_objectStats.IsDead())
+            {
+                return;
+            }
+
+            float healthRegen = m_objectStats.HealthRegeneration;
+            float manaRegen = m_objectStats.ManaRegeneration;
+
+            // 恢复速度均为 0 时跳过，避免性能损失
+            if (healthRegen <= 0f && manaRegen <= 0f)
+            {
+                return;
+            }
+
+            m_regenTimer += Time.deltaTime;
+            if (m_regenTimer < k_regenInterval)
+            {
+                return;
+            }
+
+            m_regenTimer -= k_regenInterval;
+
+            if (healthRegen > 0f && m_objectStats.CurrentHealth < m_objectStats.MaxHealth)
+            {
+                Heal(healthRegen);
+            }
+
+            if (manaRegen > 0f && m_objectStats.CurrentMana < m_objectStats.MaxMana)
+            {
+                RestoreMana(manaRegen);
             }
         }
 
