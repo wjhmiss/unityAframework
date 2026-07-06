@@ -819,10 +819,10 @@ namespace AFrameWork.GameUI
                 s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 应用倍率（攻方）：\n");
                 s_textBuilder.Append("物攻").Append(record.SumPhysicalAttack).Append("→").Append(record.EffectivePhysAtk);
                 s_textBuilder.Append(", 魔攻").Append(record.SumMagicAttack).Append("→").Append(record.EffectiveMagicAtk);
-                s_textBuilder.Append(", 真伤").Append(record.SumTrueDamage).Append("→").Append(record.EffectiveTrueDmg).Append("\n");
-                s_textBuilder.Append("暴击").Append(record.SumCriticalRate * 100f).Append("%→").Append(record.EffectiveCritRate * 100f).Append("%");
-                s_textBuilder.Append(", 暴伤").Append(record.SumCriticalDamageMultiplier * 100f).Append("%→").Append(record.EffectiveCritDmg * 100f).Append("%\n");
-                s_textBuilder.Append("穿甲").Append(record.SumArmorPenetration * 100f).Append("%→").Append(record.EffectiveArmorPen * 100f).Append("%");
+                s_textBuilder.Append(", 真伤").Append(record.SumTrueDamage).Append("→").Append(record.EffectiveTrueDmg);
+                s_textBuilder.Append(", 暴击").Append(record.SumCriticalRate * 100f).Append("%→").Append(record.EffectiveCritRate * 100f).Append("%");
+                s_textBuilder.Append(", 暴伤").Append(record.SumCriticalDamageMultiplier * 100f).Append("%→").Append(record.EffectiveCritDmg * 100f).Append("%");
+                s_textBuilder.Append(", 穿甲").Append(record.SumArmorPenetration * 100f).Append("%→").Append(record.EffectiveArmorPen * 100f).Append("%");
                 s_textBuilder.Append(", 穿魔").Append(record.SumMagicPenetration * 100f).Append("%→").Append(record.EffectiveMagicPen * 100f).Append("%");
                 var multiplierLabel = new Label(s_textBuilder.ToString());
                 multiplierLabel.AddToClassList(k_ClassFormulaStep);
@@ -838,8 +838,8 @@ namespace AFrameWork.GameUI
                 if (t != null)
                 {
                     s_textBuilder.Append("闪避").Append(t.EvasionRate * 100f).Append("%, 物防").Append(t.PhysicalDefense);
-                    s_textBuilder.Append(", 魔防").Append(t.MagicDefense).Append("\n");
-                    s_textBuilder.Append("生命").Append(t.CurrentHealth).Append("/").Append(t.MaxHealth);
+                    s_textBuilder.Append(", 魔防").Append(t.MagicDefense);
+                    s_textBuilder.Append(", 生命").Append(t.CurrentHealth).Append("/").Append(t.MaxHealth);
                     s_textBuilder.Append(", 魔法").Append(t.CurrentMana).Append("/").Append(t.MaxMana);
                 }
                 var defenderConstLabel = new Label(s_textBuilder.ToString());
@@ -942,8 +942,8 @@ namespace AFrameWork.GameUI
             if (t != null)
             {
                 s_textBuilder.Append("物防").Append(t.PhysicalDefense).Append("→").Append(record.EffectivePhysDef);
-                s_textBuilder.Append(", 魔防").Append(t.MagicDefense).Append("→").Append(record.EffectiveMagicDef).Append("\n");
-                s_textBuilder.Append("物伤=").Append(record.PhysicalDamage);
+                s_textBuilder.Append(", 魔防").Append(t.MagicDefense).Append("→").Append(record.EffectiveMagicDef);
+                s_textBuilder.Append(", 物伤=").Append(record.PhysicalDamage);
                 s_textBuilder.Append(", 魔伤=").Append(record.MagicDamage);
                 s_textBuilder.Append(", 真伤=").Append(record.TrueDamageApplied);
                 s_textBuilder.Append(", 基础=").Append(record.BaseDamage);

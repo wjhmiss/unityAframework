@@ -22,7 +22,7 @@
         <!-- ═══ Formula：公式说明区域（可垂直滚动，避免超出屏幕） ═══ -->
         <ui:VisualElement name="attack-calc-panel__formula" class="attack-calc-panel__formula">
             <ui:Label text="伤害计算公式" class="attack-calc-panel__formula-title" />
-            <ui:ScrollView name="attack-calc-panel__formula-steps" class="attack-calc-panel__formula-steps" mode="Vertical" show-vertical-scroller="true">
+            <ui:ScrollView name="attack-calc-panel__formula-steps" class="attack-calc-panel__formula-steps" mode="VerticalAndHorizontal" show-vertical-scroller="true" show-horizontal-scroller="true">
                 <!-- 公式步骤由 C# 动态生成 -->
             </ui:ScrollView>
         </ui:VisualElement>

@@ -281,7 +281,7 @@
     flex-direction: column;
     padding: 1px 0;
     color: var(--attack-calc-panel-text-color);
-    white-space: pre-line;  /* 保留代码换行符，允许长行必要时折行 */
+    white-space: pre;  /* 保留换行符，禁止折行（长行水平滚动） */
     font-size: 11px;
 }
 
@@ -315,7 +315,8 @@
 .attack-calc-panel__attr-col {
     display: flex;
     flex-direction: column;
-    width: 50%;
+    flex: 1 0 auto;
+    min-width: 50%;
     padding: 2px;
     margin: 2px;
     border-width: 1px;
