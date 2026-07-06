@@ -582,6 +582,73 @@ namespace AFrameWork.Core
         #region 伤害计算方法
 
         /// <summary>
+        /// 记录最后一次 CalculateAttack 调用的完整信息，供 UI 面板展示真实数据。
+        /// 包含所有攻击方/目标快照（克隆，避免活引用变化）及每一步中间计算结果。
+        /// </summary>
+        public struct AttackRecord
+        {
+            public bool IsValid;
+            public float Timestamp;
+
+            // 输入快照（克隆，避免活引用变化影响 UI 展示）
+            /// <summary>所有攻击方的属性快照（克隆数组，AttackRecord 自包含）</summary>
+            public ObjectStatsConfig[] AttackerSnapshots;
+            /// <summary>目标属性快照（克隆）</summary>
+            public ObjectStatsConfig TargetSnapshot;
+            /// <summary>攻击参数倍率</summary>
+            public ObjectStatsConfigMultiplier Multiplier;
+
+            // 活引用（供 UI 实时读取生命值/魔法值，可能为 null 或被销毁）
+            // 与 AttackerSnapshots/TargetSnapshot 分离：快照用于公式展示（静态），
+            // 活引用用于实时数据展示（动态）。某些攻击方可能无 ObjectBase（如子弹共享属性），对应元素为 null。
+            /// <summary>目标的 ObjectBase 活引用（供 UI 实时读取生命值/魔法值，可能为 null 或已销毁）</summary>
+            public ObjectBase TargetRef;
+            /// <summary>攻击方的 ObjectBase 活引用数组（与 AttackerSnapshots 对应，某些元素可能为 null）</summary>
+            public ObjectBase[] AttackerRefs;
+
+            // 步骤 1：累加所有攻击方属性
+            public float SumPhysicalAttack;
+            public float SumMagicAttack;
+            public float SumTrueDamage;
+            public float SumArmorPenetration;
+            public float SumMagicPenetration;
+            public float SumCriticalRate;
+            public float SumCriticalDamageMultiplier;
+            public float SumHitRate;
+
+            // 步骤 2：应用倍率后的有效值
+            public float EffectivePhysAtk;
+            public float EffectiveMagicAtk;
+            public float EffectiveTrueDmg;
+            public float EffectiveArmorPen;
+            public float EffectiveMagicPen;
+            public float EffectiveCritRate;
+            public float EffectiveCritDmg;
+
+            // 步骤 3：闪避判定
+            public bool IsEvaded;
+            public float EffectiveEvasion;
+
+            // 步骤 4：防御减免
+            public float EffectivePhysDef;
+            public float EffectiveMagicDef;
+            public float PhysicalDamage;
+            public float MagicDamage;
+            public float TrueDamageApplied;
+            public float BaseDamage;
+
+            // 步骤 5：暴击判定
+            public bool IsCritical;
+            public float FinalDamage;
+        }
+
+        /// <summary>
+        /// 最后一次 CalculateAttack 调用的完整记录，供 UI 面板展示真实数据。
+        /// 每次成功调用 CalculateAttack（含被闪避）都会更新此字段。
+        /// </summary>
+        public static AttackRecord LastAttackRecord { get; private set; }
+
+        /// <summary>
         /// 计算攻击伤害（不应用）：累加所有攻击方属性 → 闪避判定 → 伤害计算（防御减免+穿透）→ 暴击判定。
         ///
         /// 此方法是唯一的伤害计算入口，不调用 target.TakeDamage —— 由调用方决定如何应用：
@@ -643,35 +710,149 @@ namespace AFrameWork.Core
             float effectiveCritDmg = ObjectStatsConfigMultiplier.Apply(totalCriticalDamageMultiplier, multiplier.CriticalDamageMultiplier);
 
             // 3. 闪避判定（累加命中率 vs 目标闪避率）
-            if (target.IsEvaded(totalHitRate))
+            // effectiveEvasion = EvasionRate - (HitRate - 1)，与 IsEvaded 内部公式一致
+            float effectiveEvasion = target.EvasionRate - (totalHitRate - 1f);
+            bool isEvaded = target.IsEvaded(totalHitRate);
+
+            if (isEvaded)
             {
+                // 记录被闪避的攻击（供 UI 面板展示真实数据）
+                LastAttackRecord = new AttackRecord
+                {
+                    IsValid = true,
+                    Timestamp = Time.time,
+                    AttackerSnapshots = CloneAttackers(attackers),
+                    TargetSnapshot = target.Clone(),
+                    Multiplier = multiplier,
+                    SumPhysicalAttack = totalPhysicalAttack,
+                    SumMagicAttack = totalMagicAttack,
+                    SumTrueDamage = totalTrueDamage,
+                    SumArmorPenetration = totalArmorPenetration,
+                    SumMagicPenetration = totalMagicPenetration,
+                    SumCriticalRate = totalCriticalRate,
+                    SumCriticalDamageMultiplier = totalCriticalDamageMultiplier,
+                    SumHitRate = totalHitRate,
+                    EffectivePhysAtk = effectivePhysAtk,
+                    EffectiveMagicAtk = effectiveMagicAtk,
+                    EffectiveTrueDmg = effectiveTrueDmg,
+                    EffectiveArmorPen = effectiveArmorPen,
+                    EffectiveMagicPen = effectiveMagicPen,
+                    EffectiveCritRate = effectiveCritRate,
+                    EffectiveCritDmg = effectiveCritDmg,
+                    IsEvaded = true,
+                    EffectiveEvasion = effectiveEvasion,
+                    FinalDamage = 0f,
+                };
                 return 0f;
             }
 
             // 4. 计算伤害（累加所有非零攻击类型，含防御减免）
             float damage = 0f;
+            float effectivePhysDef = 0f;
+            float effectiveMagicDef = 0f;
+            float physicalDamage = 0f;
+            float magicDamage = 0f;
 
             if (effectivePhysAtk > 0f)
             {
-                float effectiveDefense = target.PhysicalDefense * (1f - effectiveArmorPen);
-                damage += effectivePhysAtk * (100f / (100f + effectiveDefense));
+                effectivePhysDef = target.PhysicalDefense * (1f - effectiveArmorPen);
+                physicalDamage = effectivePhysAtk * (100f / (100f + effectivePhysDef));
+                damage += physicalDamage;
             }
 
             if (effectiveMagicAtk > 0f)
             {
-                float effectiveDefense = target.MagicDefense * (1f - effectiveMagicPen);
-                damage += effectiveMagicAtk * (100f / (100f + effectiveDefense));
+                effectiveMagicDef = target.MagicDefense * (1f - effectiveMagicPen);
+                magicDamage = effectiveMagicAtk * (100f / (100f + effectiveMagicDef));
+                damage += magicDamage;
             }
 
             damage += effectiveTrueDmg;
+            float baseDamage = damage;
 
             // 5. 暴击判定
-            if (UnityEngine.Random.value < effectiveCritRate)
+            bool isCritical = UnityEngine.Random.value < effectiveCritRate;
+            if (isCritical)
             {
                 damage *= effectiveCritDmg;
             }
 
+            // 记录最后一次攻击的完整信息（供 UI 面板展示真实数据）
+            LastAttackRecord = new AttackRecord
+            {
+                IsValid = true,
+                Timestamp = Time.time,
+                AttackerSnapshots = CloneAttackers(attackers),
+                TargetSnapshot = target.Clone(),
+                Multiplier = multiplier,
+                SumPhysicalAttack = totalPhysicalAttack,
+                SumMagicAttack = totalMagicAttack,
+                SumTrueDamage = totalTrueDamage,
+                SumArmorPenetration = totalArmorPenetration,
+                SumMagicPenetration = totalMagicPenetration,
+                SumCriticalRate = totalCriticalRate,
+                SumCriticalDamageMultiplier = totalCriticalDamageMultiplier,
+                SumHitRate = totalHitRate,
+                EffectivePhysAtk = effectivePhysAtk,
+                EffectiveMagicAtk = effectiveMagicAtk,
+                EffectiveTrueDmg = effectiveTrueDmg,
+                EffectiveArmorPen = effectiveArmorPen,
+                EffectiveMagicPen = effectiveMagicPen,
+                EffectiveCritRate = effectiveCritRate,
+                EffectiveCritDmg = effectiveCritDmg,
+                IsEvaded = false,
+                EffectiveEvasion = effectiveEvasion,
+                EffectivePhysDef = effectivePhysDef,
+                EffectiveMagicDef = effectiveMagicDef,
+                PhysicalDamage = physicalDamage,
+                MagicDamage = magicDamage,
+                TrueDamageApplied = effectiveTrueDmg,
+                BaseDamage = baseDamage,
+                IsCritical = isCritical,
+                FinalDamage = damage,
+            };
+
             return damage;
+        }
+
+        /// <summary>
+        /// 克隆攻击方数组到新数组（attackers 可能是复用缓冲如 s_twoAttackerBuffer，必须克隆）。
+        /// 供 AttackRecord 记录使用，确保快照自包含且不受后续属性变化影响。
+        /// </summary>
+        private static ObjectStatsConfig[] CloneAttackers(ObjectStatsConfig[] attackers)
+        {
+            int count = attackers.Length;
+            ObjectStatsConfig[] snapshots = new ObjectStatsConfig[count];
+            for (int i = 0; i < count; i++)
+            {
+                ObjectStatsConfig a = attackers[i];
+                if (a != null)
+                {
+                    snapshots[i] = a.Clone();
+                }
+            }
+            return snapshots;
+        }
+
+        /// <summary>
+        /// 为最近一次 CalculateAttack 记录补充 ObjectBase 活引用，供 UI 实时读取生命值/魔法值。
+        /// 必须在 CalculateAttack 成功调用后、TakeDamage 之前/之后均可调用。
+        /// 若 AttackRecord 无效（CalculateAttack 未成功）则忽略。
+        ///
+        /// 调用约定：
+        ///   attackerRefs 的顺序和数量应与传入 CalculateAttack 的 attackers 数组一致；
+        ///   某些攻击方无 ObjectBase（如子弹共享属性），对应位置传 null。
+        /// </summary>
+        /// <param name="target">目标的 ObjectBase 活引用（可能为 null）</param>
+        /// <param name="attackerRefs">攻击方的 ObjectBase 活引用数组（与 attackers 对应，某些元素可为 null）</param>
+        public static void SetLastAttackRefs(ObjectBase target, params ObjectBase[] attackerRefs)
+        {
+            if (!LastAttackRecord.IsValid) return;
+
+            AttackRecord record = LastAttackRecord;
+            record.TargetRef = target;
+            record.AttackerRefs = attackerRefs;
+            LastAttackRecord = record;
         }
 
         #endregion

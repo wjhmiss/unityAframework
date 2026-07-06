@@ -201,6 +201,8 @@ namespace AFrameWork.Sample
             ObjectStatsConfig targetStats = target.GetObjectStats();
             float damage = ObjectStatsConfig.CalculateAttack(
                 new ObjectStatsConfigMultiplier(), targetStats, attackerStats);
+            // 记录 ObjectBase 活引用供 UI 实时读取生命值/魔法值（攻击方=this）
+            ObjectStatsConfig.SetLastAttackRefs(target, this);
             target.TakeDamage(damage);
 
 #if UNITY_EDITOR

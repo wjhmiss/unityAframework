@@ -1,0 +1,280 @@
+:root {
+    /* 与 UserPanel 共用的视觉令牌（保持色板一致） */
+    --attack-calc-panel-width: 560px;
+    --attack-calc-panel-bg-color: rgba(15, 15, 25, 0.85);
+    --attack-calc-panel-border-color: rgba(100, 150, 200, 0.4);
+    --attack-calc-panel-border-radius: 6px;
+    --attack-calc-panel-padding: 8px;
+
+    --attack-calc-panel-text-color: rgb(220, 220, 230);
+    --attack-calc-panel-title-color: rgb(255, 215, 0);
+    --attack-calc-panel-value-color: rgb(100, 255, 150);
+    --attack-calc-panel-section-color: rgba(100, 150, 200, 0.3);
+
+    --attack-calc-panel-font-size: 11px;
+    --attack-calc-panel-title-size: 14px;
+    --attack-calc-panel-section-size: 12px;
+    --attack-calc-panel-row-height: 18px;
+    --attack-calc-panel-gap: 4px;
+
+    /* 攻击者/目标卡片配色（区分角色） */
+    --attack-calc-panel-attacker-bg: rgba(80, 140, 220, 0.12);
+    --attack-calc-panel-attacker-border: rgba(100, 180, 255, 0.5);
+    --attack-calc-panel-target-bg: rgba(200, 80, 80, 0.12);
+    --attack-calc-panel-target-border: rgba(255, 120, 120, 0.5);
+    --attack-calc-panel-shared-bg: rgba(160, 120, 220, 0.12);
+    --attack-calc-panel-shared-border: rgba(190, 150, 255, 0.5);
+
+    --attack-calc-panel-formula-bg: rgba(40, 30, 20, 0.5);
+    --attack-calc-panel-result-color: rgb(255, 200, 80);
+    --attack-calc-panel-arrow-color: rgba(255, 215, 0, 0.7);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   根容器：右上角浮动面板（避开左上角的 UserPanel）
+   ════════════════════════════════════════════════════════════════════ */
+.attack-calc-panel {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: var(--attack-calc-panel-width);
+    background-color: var(--attack-calc-panel-bg-color);
+    border-radius: var(--attack-calc-panel-border-radius);
+    border-width: 1px;
+    border-color: var(--attack-calc-panel-border-color);
+    padding: var(--attack-calc-panel-padding);
+    display: flex;
+    flex-direction: column;
+    font-size: var(--attack-calc-panel-font-size);
+    color: var(--attack-calc-panel-text-color);
+}
+
+/* 隐藏状态 */
+.attack-calc-panel--hidden {
+    display: none;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Header：标题 + 关闭按钮
+   ════════════════════════════════════════════════════════════════════ */
+.attack-calc-panel__header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-width: 0 0 1px 0;
+    border-color: var(--attack-calc-panel-border-color);
+}
+
+.attack-calc-panel__title {
+    font-size: var(--attack-calc-panel-title-size);
+    -unity-font-style: bold;
+    color: var(--attack-calc-panel-title-color);
+}
+
+.attack-calc-panel__hint {
+    font-size: var(--attack-calc-panel-font-size);
+    color: var(--attack-calc-panel-text-color);
+    -unity-font-style: italic;
+    opacity: 0.7;
+}
+
+.attack-calc-panel__close-btn {
+    font-size: var(--attack-calc-panel-font-size);
+    color: var(--attack-calc-panel-text-color);
+    border-width: 1px;
+    border-color: var(--attack-calc-panel-border-color);
+    border-radius: 3px;
+    padding: 2px 6px;
+    background-color: rgba(60, 60, 80, 0.4);
+}
+
+.attack-calc-panel__close-btn:hover {
+    background-color: rgba(120, 60, 60, 0.6);
+    color: rgb(255, 200, 200);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Body：水平滚动容器，存放攻击对象卡片
+   ════════════════════════════════════════════════════════════════════ */
+.attack-calc-panel__body {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    overflow: auto;
+    padding: 4px 0;
+    margin-bottom: 6px;
+}
+
+.attack-calc-panel__cards-row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+}
+
+/* 攻击对象之间的箭头分隔符 */
+.attack-calc-panel__arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    color: var(--attack-calc-panel-arrow-color);
+    font-size: var(--attack-calc-panel-title-size);
+    -unity-font-style: bold;
+    align-self: center;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Object Card：单个对象（攻击者/共享属性/目标）的信息卡片
+   ════════════════════════════════════════════════════════════════════ */
+.attack-calc-panel__object-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    max-width: 180px;
+    padding: 6px;
+    margin: 2px;
+    border-width: 1px;
+    border-color: var(--attack-calc-panel-border-color);
+    border-radius: 4px;
+    background-color: rgba(30, 30, 45, 0.5);
+}
+
+.attack-calc-panel__object-card--attacker {
+    background-color: var(--attack-calc-panel-attacker-bg);
+    border-color: var(--attack-calc-panel-attacker-border);
+}
+
+.attack-calc-panel__object-card--target {
+    background-color: var(--attack-calc-panel-target-bg);
+    border-color: var(--attack-calc-panel-target-border);
+}
+
+.attack-calc-panel__object-card--shared {
+    background-color: var(--attack-calc-panel-shared-bg);
+    border-color: var(--attack-calc-panel-shared-border);
+}
+
+.attack-calc-panel__object-card--empty {
+    border-style: dashed;
+    border-color: rgba(150, 150, 150, 0.3);
+    color: rgba(180, 180, 180, 0.5);
+    -unity-text-align: middle-center;
+    justify-content: center;
+    min-height: 60px;
+}
+
+/* 悬停效果：卡片高亮 + 略放大（满足"悬停效果"需求） */
+.attack-calc-panel__object-card:hover {
+    border-color: var(--attack-calc-panel-title-color);
+    border-width: 2px;
+}
+
+.attack-calc-panel__object-header {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    border-width: 0 0 1px 0;
+    border-color: var(--attack-calc-panel-section-color);
+}
+
+.attack-calc-panel__object-name {
+    font-size: var(--attack-calc-panel-section-size);
+    -unity-font-style: bold;
+    color: var(--attack-calc-panel-title-color);
+    -unity-text-align: middle-center;
+}
+
+.attack-calc-panel__object-role {
+    font-size: 10px;
+    color: var(--attack-calc-panel-text-color);
+    opacity: 0.75;
+    -unity-text-align: middle-center;
+}
+
+.attack-calc-panel__param-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.attack-calc-panel__param-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: var(--attack-calc-panel-row-height);
+}
+
+.attack-calc-panel__param-label {
+    color: var(--attack-calc-panel-text-color);
+    -unity-text-align: middle-left;
+}
+
+.attack-calc-panel__param-value {
+    color: var(--attack-calc-panel-value-color);
+    -unity-text-align: middle-right;
+    -unity-font-style: bold;
+}
+
+.attack-calc-panel__param-value--muted {
+    color: var(--attack-calc-panel-text-color);
+    opacity: 0.6;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Formula：底部公式说明区域
+   ════════════════════════════════════════════════════════════════════ */
+.attack-calc-panel__formula {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    margin-top: 6px;
+    background-color: var(--attack-calc-panel-formula-bg);
+    border-width: 1px 0 0 0;
+    border-color: var(--attack-calc-panel-border-color);
+    border-radius: 3px;
+}
+
+.attack-calc-panel__formula-title {
+    font-size: var(--attack-calc-panel-section-size);
+    -unity-font-style: bold;
+    color: var(--attack-calc-panel-title-color);
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+    border-width: 0 0 1px 0;
+    border-color: var(--attack-calc-panel-section-color);
+}
+
+.attack-calc-panel__formula-step {
+    display: flex;
+    flex-direction: column;
+    padding: 3px 0;
+    color: var(--attack-calc-panel-text-color);
+    white-space: normal;
+}
+
+.attack-calc-panel__formula-step--result {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-width: 1px 0 0 0;
+    border-color: var(--attack-calc-panel-section-color);
+    -unity-font-style: bold;
+    color: var(--attack-calc-panel-result-color);
+    font-size: var(--attack-calc-panel-section-size);
+}
+
+.attack-calc-panel__formula-step--evaded {
+    color: rgb(255, 150, 150);
+    -unity-font-style: bold;
+}
+
+.attack-calc-panel__empty-hint {
+    padding: 12px;
+    color: var(--attack-calc-panel-text-color);
+    opacity: 0.6;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}

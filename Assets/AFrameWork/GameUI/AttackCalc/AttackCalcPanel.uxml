@@ -1,0 +1,30 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="attack-calc-panel" class="attack-calc-panel">
+
+        <!-- ═══ Header：标题 + 提示 + 关闭按钮 ═══ -->
+        <ui:VisualElement class="attack-calc-panel__header">
+            <ui:Label name="attack-calc-panel__title" text="伤害计算面板" class="attack-calc-panel__title" />
+            <ui:Label name="attack-calc-panel__hint" text="Alt+2 切换显隐" class="attack-calc-panel__hint" />
+            <ui:Button name="attack-calc-panel__close-btn" text="关闭" class="attack-calc-panel__close-btn" />
+        </ui:VisualElement>
+
+        <!-- ═══ Body：水平滚动容器，动态填充攻击对象卡片 ═══ -->
+        <ui:ScrollView name="attack-calc-panel__body" class="attack-calc-panel__body" mode="Horizontal" show-horizontal-scroller="true">
+            <ui:VisualElement name="attack-calc-panel__cards-row" class="attack-calc-panel__cards-row">
+                <!-- 卡片由 C# 动态生成 -->
+            </ui:VisualElement>
+        </ui:ScrollView>
+
+        <!-- 空状态提示（无攻击者/目标时显示） -->
+        <ui:Label name="attack-calc-panel__empty-hint" text="场景中暂无可用的攻击者与目标" class="attack-calc-panel__empty-hint" style="display: none;" />
+
+        <!-- ═══ Formula：底部公式说明区域 ═══ -->
+        <ui:VisualElement name="attack-calc-panel__formula" class="attack-calc-panel__formula">
+            <ui:Label text="伤害计算公式" class="attack-calc-panel__formula-title" />
+            <ui:VisualElement name="attack-calc-panel__formula-steps" class="attack-calc-panel__param-list">
+                <!-- 公式步骤由 C# 动态生成 -->
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

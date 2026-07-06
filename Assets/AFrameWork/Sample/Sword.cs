@@ -242,6 +242,9 @@ namespace AFrameWork.Sample
             float damage = ObjectStatsConfig.CalculateAttack(
                 m_attackMultiplier, targetStats, myStats, m_ownerStats);
 
+            // 记录 ObjectBase 活引用供 UI 实时读取生命值/魔法值（攻击方=this + m_owner）
+            ObjectStatsConfig.SetLastAttackRefs(target, this, m_owner);
+
             // 经 ObjectBase.TakeDamage 应用：保留无敌检查（翻滚免疫）/OnDamaged 回调/OnDeath 处理
             target.TakeDamage(damage);
 
