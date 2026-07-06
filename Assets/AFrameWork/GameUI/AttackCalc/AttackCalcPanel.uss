@@ -242,7 +242,7 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   Formula：公式说明区域（可垂直滚动，避免超出屏幕）
+   Formula：公式说明区域（占满底部剩余空间）
    ════════════════════════════════════════════════════════════════════ */
 .attack-calc-panel__formula {
     display: flex;
@@ -254,8 +254,8 @@
     border-color: var(--attack-calc-panel-border-color);
     border-radius: 3px;
     flex-grow: 1;
-    flex-shrink: 1;
-    min-height: 100px;
+    flex-shrink: 0;  /* 不收缩，确保占满底部 */
+    min-height: 0;   /* 让 flex-grow 自动分配高度 */
 }
 
 .attack-calc-panel__formula-title {
@@ -269,11 +269,11 @@
     flex-shrink: 0;
 }
 
-/* 公式步骤滚动容器（ScrollView） */
+/* 公式步骤滚动容器（ScrollView，占满剩余空间） */
 .attack-calc-panel__formula-steps {
     flex-grow: 1;
-    flex-shrink: 1;
-    min-height: 120px;  /* 确保 ScrollView 有足够高度显示滚动条 */
+    flex-shrink: 0;  /* 不收缩，占满公式区域剩余空间 */
+    min-height: 0;   /* 让 flex-grow 自动分配高度 */
 }
 
 .attack-calc-panel__formula-step {
