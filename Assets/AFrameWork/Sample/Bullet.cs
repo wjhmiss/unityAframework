@@ -1,6 +1,7 @@
 using UnityEngine;
 using AFrameWork.Core;
 using AFrameWork.Core.SmallBase;
+using System;
 
 namespace AFrameWork.Sample
 {
@@ -37,8 +38,8 @@ namespace AFrameWork.Sample
         // 子弹自身基础属性（所有 Bullet 实例共享一个实例，零 GC）
         // 命中时与 owner 克隆累加：bullet.PhysicalAttack + owner.PhysicalAttack
         // 其他战斗字段（穿透/暴击/命中/闪避）默认 0，由 owner 克隆贡献
-        private static readonly ObjectStatsConfig s_bulletStats = new ObjectStatsConfig(
-            maxHealth: 0f, physicalAttack: 10f, physicalDefense: 0f,
+        private static readonly ObjectStatsConfig s_bulletStats = new ObjectStatsConfig(type: ObjectType.Projectile,
+            maxHealth: 0f, physicalAttack: 0.3f, physicalDefense: 0f,
             magicAttack: 0f, magicDefense: 0f, moveSpeed: 0f);
 
         /// <summary>所有 Bullet 共享的基础属性（10 点物理攻击），与 owner 克隆累加计算伤害。</summary>

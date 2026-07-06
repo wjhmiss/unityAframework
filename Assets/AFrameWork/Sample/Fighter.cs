@@ -751,7 +751,7 @@ namespace AFrameWork.Sample
             if (m_bulletPos == null) return;
 
             // 消耗 15 点魔法值，魔法值不足时无法发射子弹
-            if (!ConsumeMana(15f)) return;
+            if (!ConsumeMana(1f)) return;
 
             // 通过 SimpleObjectPool 发射（对象池复用，无 Instantiate/Destroy）
             SimpleObjectPool pool = SimpleObjectPool.Instance;

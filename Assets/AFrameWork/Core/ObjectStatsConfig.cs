@@ -461,10 +461,10 @@ namespace AFrameWork.Core
                 FactionID = 1,
                 MaxHealth = 100f,
                 CurrentHealth = 100f,
-                PhysicalAttack = 25f,
+                PhysicalAttack = 1.2f,
                 PhysicalDefense = 15f,
-                TrueDamage = 5f,
-                MagicAttack = 10f,
+                TrueDamage = 0.1f,
+                MagicAttack = 1.1f,
                 MagicDefense = 12f,
                 MoveSpeed = 6f,
                 AttackSpeed = 1.5f,
@@ -567,9 +567,10 @@ namespace AFrameWork.Core
         /// <summary>
         /// 自定义配置构造函数（基础属性）
         /// </summary>
-        public ObjectStatsConfig(float maxHealth, float physicalAttack, float physicalDefense,
+        public ObjectStatsConfig(ObjectType type, float maxHealth, float physicalAttack, float physicalDefense,
             float magicAttack, float magicDefense, float moveSpeed)
         {
+            Type = type;    
             MaxHealth = maxHealth;
             CurrentHealth = maxHealth;
             PhysicalAttack = physicalAttack;
