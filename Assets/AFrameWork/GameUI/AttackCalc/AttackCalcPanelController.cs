@@ -57,6 +57,10 @@ namespace AFrameWork.GameUI
         private const string k_ClassFormulaStep = "attack-calc-panel__formula-step";
         private const string k_ClassFormulaStepResult = "attack-calc-panel__formula-step--result";
         private const string k_ClassFormulaStepEvaded = "attack-calc-panel__formula-step--evaded";
+        private const string k_ClassAttrRow = "attack-calc-panel__attr-row";
+        private const string k_ClassAttrCol = "attack-calc-panel__attr-col";
+        private const string k_ClassAttrColAttacker = "attack-calc-panel__attr-col--attacker";
+        private const string k_ClassAttrColDefender = "attack-calc-panel__attr-col--defender";
         private const string k_ClassHidden = "attack-calc-panel--hidden";
 
         /// <summary>面板检查新攻击记录的间隔（秒），避免每帧轮询</summary>
@@ -82,7 +86,7 @@ namespace AFrameWork.GameUI
         private VisualElement m_cardsRow;
         private Label m_emptyHintLabel;
         private VisualElement m_formulaContainer;
-        private VisualElement m_formulaStepsContainer;
+        private ScrollView m_formulaStepsScrollView;
 
         // 运行时状态
         private float m_lastUpdateTime;
@@ -293,7 +297,7 @@ namespace AFrameWork.GameUI
             m_cardsRow = root.Q<VisualElement>(k_CardsRow);
             m_emptyHintLabel = root.Q<Label>(k_EmptyHint);
             m_formulaContainer = root.Q<VisualElement>(k_Formula);
-            m_formulaStepsContainer = root.Q<VisualElement>(k_FormulaSteps);
+            m_formulaStepsScrollView = root.Q<ScrollView>(k_FormulaSteps);
         }
 
         // ══════════════════════════════════════════════════════════════════════════
@@ -699,120 +703,289 @@ namespace AFrameWork.GameUI
         /// <summary>
         /// 重建公式步骤区域。使用 AttackRecord 中的真实数字展示各步骤，
         /// 与 ObjectStatsConfig.CalculateAttack 内部计算完全一致。
-        /// 步骤编号用圆圈数字 ①②③④⑤⑥，动态编号（有倍率时多一步）。
+        ///
+        /// 布局策略：攻方属性左侧 + 守方属性右侧（并排节约纵向空间），计算公式步骤在下。
+        /// 步骤编号用圆圈数字，动态编号（有倍率时多一步）。
+        ///
+        /// 数据来源标注规范：
+        ///   - 【攻方·类型名】= 攻击方属性（累加自所有攻击方快照）
+        ///   - 【守方·类型名】= 被攻击方属性（来自目标快照）
+        /// 每个步骤的公式行内均标明数据来源，便于追溯每个数值的出处。
         /// </summary>
         private void RebuildFormulaSteps(ObjectStatsConfig.AttackRecord record)
         {
-            if (m_formulaStepsContainer == null) return;
-            m_formulaStepsContainer.Clear();
+            if (m_formulaStepsScrollView == null) return;
+            m_formulaStepsScrollView.contentContainer.Clear();
 
-            // 圆圈数字（按步骤序号 1-based 索引）
-            // 步骤序号动态计算：①累加 → [②倍率] → ③闪避 → ④防御 → ⑤暴击
+            // 步骤序号动态计算：①双方属性 → [②倍率] → ③闪避 → ④防御 → ⑤暴击
             int stepNum = 1;
 
-            // ─── 步骤 ①：累加攻击方属性（展示每个攻击方的贡献） ───
+            string targetName = record.TargetSnapshot != null
+                ? GetTypeName(record.TargetSnapshot.Type)
+                : "目标";
+
+            ObjectStatsConfig t = record.TargetSnapshot;
+
+            // ─── 步骤 ①：双方属性（左攻方 + 右守方 并排展示） ───
+            // 使用水平容器，左侧攻方属性，右侧守方属性，节约纵向空间
+            var attrRow = new VisualElement();
+            attrRow.AddToClassList(k_ClassAttrRow);
+
+            // 左列：攻方属性
+            var attackerCol = new VisualElement();
+            attackerCol.AddToClassList(k_ClassAttrCol);
+            attackerCol.AddToClassList(k_ClassAttrColAttacker);
+
             s_textBuilder.Clear();
-            s_textBuilder.Append(GetStepCircle(stepNum++)).Append(" 累加攻击方属性：\n");
+            s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 攻击方属性：\n");
             if (record.AttackerSnapshots != null)
             {
                 for (int i = 0; i < record.AttackerSnapshots.Length; i++)
                 {
                     ObjectStatsConfig a = record.AttackerSnapshots[i];
                     if (a == null) continue;
-                    s_textBuilder.Append("   [").Append(GetTypeName(a.Type)).Append("] ");
+                    s_textBuilder.Append("【攻方·").Append(GetTypeName(a.Type)).Append("】 ");
                     s_textBuilder.Append("物攻 ").Append(a.PhysicalAttack);
                     s_textBuilder.Append(" + 魔攻 ").Append(a.MagicAttack);
-                    s_textBuilder.Append(" + 真伤 ").Append(a.TrueDamage);
-                    s_textBuilder.Append(" (命中 ").Append(a.HitRate * 100f).Append("%");
+                    s_textBuilder.Append(" + 真伤 ").Append(a.TrueDamage).Append("\n");
+                    s_textBuilder.Append("  命中 ").Append(a.HitRate * 100f).Append("%");
                     s_textBuilder.Append(", 暴击 ").Append(a.CriticalRate * 100f).Append("%");
-                    s_textBuilder.Append(", 暴伤 ").Append(a.CriticalDamageMultiplier * 100f).Append("%");
-                    s_textBuilder.Append(", 穿甲 ").Append(a.ArmorPenetration * 100f).Append("%");
-                    s_textBuilder.Append(", 穿魔 ").Append(a.MagicPenetration * 100f).Append("%)\n");
+                    s_textBuilder.Append(", 暴伤 ").Append(a.CriticalDamageMultiplier * 100f).Append("%\n");
+                    s_textBuilder.Append("  穿甲 ").Append(a.ArmorPenetration * 100f).Append("%");
+                    s_textBuilder.Append(", 穿魔 ").Append(a.MagicPenetration * 100f).Append("%\n");
                 }
             }
-            s_textBuilder.Append("   合计: 物攻 ").Append(record.SumPhysicalAttack);
+            s_textBuilder.Append("合计: 物攻 ").Append(record.SumPhysicalAttack);
             s_textBuilder.Append(" + 魔攻 ").Append(record.SumMagicAttack);
-            s_textBuilder.Append(" + 真伤 ").Append(record.SumTrueDamage);
-            s_textBuilder.Append("\n   命中 ").Append(record.SumHitRate * 100f).Append("%");
+            s_textBuilder.Append(" + 真伤 ").Append(record.SumTrueDamage).Append("\n");
+            s_textBuilder.Append("命中 ").Append(record.SumHitRate * 100f).Append("%");
             s_textBuilder.Append(", 暴击 ").Append(record.SumCriticalRate * 100f).Append("%");
-            s_textBuilder.Append(", 暴伤 ").Append(record.SumCriticalDamageMultiplier * 100f).Append("%");
-            s_textBuilder.Append(", 穿甲 ").Append(record.SumArmorPenetration * 100f).Append("%");
+            s_textBuilder.Append(", 暴伤 ").Append(record.SumCriticalDamageMultiplier * 100f).Append("%\n");
+            s_textBuilder.Append("穿甲 ").Append(record.SumArmorPenetration * 100f).Append("%");
             s_textBuilder.Append(", 穿魔 ").Append(record.SumMagicPenetration * 100f).Append("%");
-            AddFormulaStep(s_textBuilder.ToString());
+            var attackerLabel = new Label(s_textBuilder.ToString());
+            attackerLabel.AddToClassList(k_ClassFormulaStep);
+            attackerCol.Add(attackerLabel);
 
-            // ─── 步骤 ②：应用倍率（仅当倍率非 identity 时展示） ───
+            // 右列：守方属性
+            var defenderCol = new VisualElement();
+            defenderCol.AddToClassList(k_ClassAttrCol);
+            defenderCol.AddToClassList(k_ClassAttrColDefender);
+
+            s_textBuilder.Clear();
+            s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 被攻击方属性：\n");
+            if (t != null)
+            {
+                s_textBuilder.Append("【守方·").Append(targetName).Append("】\n");
+                s_textBuilder.Append("物攻 ").Append(t.PhysicalAttack);
+                s_textBuilder.Append(" + 魔攻 ").Append(t.MagicAttack);
+                s_textBuilder.Append(" + 真伤 ").Append(t.TrueDamage).Append("\n");
+                s_textBuilder.Append("命中 ").Append(t.HitRate * 100f).Append("%");
+                s_textBuilder.Append(", 闪避 ").Append(t.EvasionRate * 100f).Append("%\n");
+                s_textBuilder.Append("暴击 ").Append(t.CriticalRate * 100f).Append("%");
+                s_textBuilder.Append(", 暴伤 ").Append(t.CriticalDamageMultiplier * 100f).Append("%\n");
+                s_textBuilder.Append("穿甲 ").Append(t.ArmorPenetration * 100f).Append("%");
+                s_textBuilder.Append(", 穿魔 ").Append(t.MagicPenetration * 100f).Append("%\n");
+                s_textBuilder.Append("物防 ").Append(t.PhysicalDefense);
+                s_textBuilder.Append(", 魔防 ").Append(t.MagicDefense).Append("\n");
+                s_textBuilder.Append("生命 ").Append(t.CurrentHealth).Append("/").Append(t.MaxHealth);
+                s_textBuilder.Append(", 魔法 ").Append(t.CurrentMana).Append("/").Append(t.MaxMana);
+            }
+            var defenderLabel = new Label(s_textBuilder.ToString());
+            defenderLabel.AddToClassList(k_ClassFormulaStep);
+            defenderCol.Add(defenderLabel);
+
+            attrRow.Add(attackerCol);
+            attrRow.Add(defenderCol);
+            m_formulaStepsScrollView.contentContainer.Add(attrRow);
+            stepNum++;
+
+            // ─── 步骤 ②：应用倍率 + 守方基础属性（左攻方变化，右守方不变） ───
+            // 仅当倍率非 identity 时展示，左侧攻方倍率变化，右侧守方属性对比
             if (HasNonIdentityMultiplier(record.Multiplier))
             {
+                var multiplierRow = new VisualElement();
+                multiplierRow.AddToClassList(k_ClassAttrRow);
+
+                // 左列：攻方倍率变化
+                var multiplierCol = new VisualElement();
+                multiplierCol.AddToClassList(k_ClassAttrCol);
+                multiplierCol.AddToClassList(k_ClassAttrColAttacker);
+
                 s_textBuilder.Clear();
-                s_textBuilder.Append(GetStepCircle(stepNum++)).Append(" 应用攻击参数倍率：\n");
-                s_textBuilder.Append("   物攻 ").Append(record.SumPhysicalAttack).Append(" → ").Append(record.EffectivePhysAtk).Append("\n");
-                s_textBuilder.Append("   魔攻 ").Append(record.SumMagicAttack).Append(" → ").Append(record.EffectiveMagicAtk).Append("\n");
-                s_textBuilder.Append("   真伤 ").Append(record.SumTrueDamage).Append(" → ").Append(record.EffectiveTrueDmg).Append("\n");
-                s_textBuilder.Append("   暴击 ").Append(record.SumCriticalRate * 100f).Append("% → ").Append(record.EffectiveCritRate * 100f).Append("%\n");
-                s_textBuilder.Append("   暴伤 ").Append(record.SumCriticalDamageMultiplier * 100f).Append("% → ").Append(record.EffectiveCritDmg * 100f).Append("%");
-                AddFormulaStep(s_textBuilder.ToString());
+                s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 应用倍率（攻方）：\n");
+                s_textBuilder.Append("物攻 ").Append(record.SumPhysicalAttack).Append(" → ").Append(record.EffectivePhysAtk).Append("\n");
+                s_textBuilder.Append("魔攻 ").Append(record.SumMagicAttack).Append(" → ").Append(record.EffectiveMagicAtk).Append("\n");
+                s_textBuilder.Append("真伤 ").Append(record.SumTrueDamage).Append(" → ").Append(record.EffectiveTrueDmg).Append("\n");
+                s_textBuilder.Append("暴击 ").Append(record.SumCriticalRate * 100f).Append("% → ").Append(record.EffectiveCritRate * 100f).Append("%\n");
+                s_textBuilder.Append("暴伤 ").Append(record.SumCriticalDamageMultiplier * 100f).Append("% → ").Append(record.EffectiveCritDmg * 100f).Append("%\n");
+                s_textBuilder.Append("穿甲 ").Append(record.SumArmorPenetration * 100f).Append("% → ").Append(record.EffectiveArmorPen * 100f).Append("%\n");
+                s_textBuilder.Append("穿魔 ").Append(record.SumMagicPenetration * 100f).Append("% → ").Append(record.EffectiveMagicPen * 100f).Append("%");
+                var multiplierLabel = new Label(s_textBuilder.ToString());
+                multiplierLabel.AddToClassList(k_ClassFormulaStep);
+                multiplierCol.Add(multiplierLabel);
+
+                // 右列：守方属性不变（对比）
+                var defenderConstCol = new VisualElement();
+                defenderConstCol.AddToClassList(k_ClassAttrCol);
+                defenderConstCol.AddToClassList(k_ClassAttrColDefender);
+
+                s_textBuilder.Clear();
+                s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 守方属性不变：\n");
+                if (t != null)
+                {
+                    s_textBuilder.Append("闪避 ").Append(t.EvasionRate * 100f).Append("%（不变）\n");
+                    s_textBuilder.Append("物防 ").Append(t.PhysicalDefense).Append("（不变）\n");
+                    s_textBuilder.Append("魔防 ").Append(t.MagicDefense).Append("（不变）\n");
+                    s_textBuilder.Append("生命 ").Append(t.CurrentHealth).Append("/").Append(t.MaxHealth).Append("\n");
+                }
+                var defenderConstLabel = new Label(s_textBuilder.ToString());
+                defenderConstLabel.AddToClassList(k_ClassFormulaStep);
+                defenderConstCol.Add(defenderConstLabel);
+
+                multiplierRow.Add(multiplierCol);
+                multiplierRow.Add(defenderConstCol);
+                m_formulaStepsScrollView.contentContainer.Add(multiplierRow);
+                stepNum++;
             }
 
-            // ─── 步骤 ③：闪避判定 ───
+            // ─── 步骤 ③：闪避判定（左攻方命中，右守方闪避） ───
+            var evasionRow = new VisualElement();
+            evasionRow.AddToClassList(k_ClassAttrRow);
+
+            // 左列：攻方命中率
+            var hitCol = new VisualElement();
+            hitCol.AddToClassList(k_ClassAttrCol);
+            hitCol.AddToClassList(k_ClassAttrColAttacker);
+
             s_textBuilder.Clear();
-            s_textBuilder.Append(GetStepCircle(stepNum++)).Append(" 闪避判定：\n");
-            s_textBuilder.Append("   有效闪避 = 闪避 ").Append(record.TargetSnapshot.EvasionRate * 100f).Append("%");
-            s_textBuilder.Append(" - (命中 ").Append(record.SumHitRate * 100f).Append("% - 100%)");
-            s_textBuilder.Append(" = ").Append(Mathf.Max(0f, record.EffectiveEvasion) * 100f).Append("%\n");
+            s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 命中判定（攻方）：\n");
+            s_textBuilder.Append("累加命中率 = ").Append(record.SumHitRate * 100f).Append("%\n");
+            s_textBuilder.Append("（来自步骤 ① 左列）\n");
+            if (HasNonIdentityMultiplier(record.Multiplier))
+            {
+                s_textBuilder.Append("（未受倍率影响）\n");
+            }
+            var hitLabel = new Label(s_textBuilder.ToString());
+            hitLabel.AddToClassList(k_ClassFormulaStep);
+            hitCol.Add(hitLabel);
+
+            // 右列：守方闪避率
+            var evasionCol = new VisualElement();
+            evasionCol.AddToClassList(k_ClassAttrCol);
+            evasionCol.AddToClassList(k_ClassAttrColDefender);
+
+            s_textBuilder.Clear();
+            s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 闪避判定（守方）：\n");
+            s_textBuilder.Append("闪避率 = ").Append(t.EvasionRate * 100f).Append("%\n");
+            s_textBuilder.Append("有效闪避 = ").Append(t.EvasionRate * 100f).Append("% - (").Append(record.SumHitRate * 100f).Append("% - 100%)\n");
+            s_textBuilder.Append("        = ").Append(Mathf.Max(0f, record.EffectiveEvasion) * 100f).Append("%\n");
             if (record.IsEvaded)
             {
-                s_textBuilder.Append("   ⚠ 本次攻击被闪避！伤害 = 0");
-                AddFormulaStep(s_textBuilder.ToString(), k_ClassFormulaStepEvaded);
-                AddFormulaStep("最终伤害 = 0（被闪避）", k_ClassFormulaStepResult);
-                return;
+                s_textBuilder.Append("⚠ 本次攻击被闪避！\n");
+                s_textBuilder.Append("伤害 = 0");
             }
-            if (record.EffectiveEvasion <= 0f)
+            else if (record.EffectiveEvasion <= 0f)
             {
-                s_textBuilder.Append("   ✓ 有效闪避 ≤ 0，必命中");
+                s_textBuilder.Append("✓ 有效闪避 ≤ 0，必命中");
             }
             else
             {
-                s_textBuilder.Append("   本次：命中（闪避概率 ").Append(record.EffectiveEvasion * 100f).Append("% 未触发）");
+                s_textBuilder.Append("本次：命中\n");
+                s_textBuilder.Append("（闪避 ").Append(record.EffectiveEvasion * 100f).Append("% 未触发）");
             }
-            AddFormulaStep(s_textBuilder.ToString());
+            var evasionLabel = new Label(s_textBuilder.ToString());
+            evasionLabel.AddToClassList(k_ClassFormulaStep);
+            if (record.IsEvaded)
+            {
+                evasionLabel.AddToClassList(k_ClassFormulaStepEvaded);
+            }
+            evasionCol.Add(evasionLabel);
 
-            // ─── 步骤 ④：防御减免 ───
+            evasionRow.Add(hitCol);
+            evasionRow.Add(evasionCol);
+            m_formulaStepsScrollView.contentContainer.Add(evasionRow);
+
+            if (record.IsEvaded)
+            {
+                AddFormulaStep("最终伤害 = 0（被闪避）", k_ClassFormulaStepResult);
+                return;
+            }
+            stepNum++;
+
+            // ─── 步骤 ④：防御减免（【攻方】攻击/穿透 vs 【守方】防御） ───
             s_textBuilder.Clear();
             s_textBuilder.Append(GetStepCircle(stepNum++)).Append(" 防御减免：\n");
             if (record.PhysicalDamage > 0f)
             {
-                s_textBuilder.Append("   物理: ").Append(record.EffectivePhysAtk);
-                s_textBuilder.Append(" × 100/(100+").Append(record.TargetSnapshot.PhysicalDefense);
-                s_textBuilder.Append("×(1-").Append(record.EffectiveArmorPen * 100f).Append("%))");
-                s_textBuilder.Append(" = ").Append(record.PhysicalDamage).Append("\n");
+                s_textBuilder.Append("   【攻方】有效物攻 = ").Append(record.EffectivePhysAtk);
+                if (HasNonIdentityMultiplier(record.Multiplier))
+                {
+                    s_textBuilder.Append("（来自步骤 ② 左列）\n");
+                }
+                else
+                {
+                    s_textBuilder.Append("（来自步骤 ① 左列）\n");
+                }
+                s_textBuilder.Append("   【守方】物理防御 = ").Append(t.PhysicalDefense).Append("（来自步骤 ① 右列）\n");
+                s_textBuilder.Append("   【攻方】护甲穿透 = ").Append(record.EffectiveArmorPen * 100f).Append("%\n");
+                s_textBuilder.Append("   有效物防 = 【守方】物防 × (1 - 【攻方】穿甲)\n");
+                s_textBuilder.Append("           = ").Append(t.PhysicalDefense).Append(" × (1 - ").Append(record.EffectiveArmorPen * 100f).Append("%) = ").Append(record.EffectivePhysDef).Append("\n");
+                s_textBuilder.Append("   物理: 【攻方】物攻 × 100/(100+有效物防)\n");
+                s_textBuilder.Append("       = ").Append(record.EffectivePhysAtk).Append(" × 100/(100+").Append(record.EffectivePhysDef).Append(") = ").Append(record.PhysicalDamage).Append("\n");
             }
             if (record.MagicDamage > 0f)
             {
-                s_textBuilder.Append("   魔法: ").Append(record.EffectiveMagicAtk);
-                s_textBuilder.Append(" × 100/(100+").Append(record.TargetSnapshot.MagicDefense);
-                s_textBuilder.Append("×(1-").Append(record.EffectiveMagicPen * 100f).Append("%))");
-                s_textBuilder.Append(" = ").Append(record.MagicDamage).Append("\n");
+                s_textBuilder.Append("   【攻方】有效魔攻 = ").Append(record.EffectiveMagicAtk);
+                if (HasNonIdentityMultiplier(record.Multiplier))
+                {
+                    s_textBuilder.Append("（来自步骤 ② 左列）\n");
+                }
+                else
+                {
+                    s_textBuilder.Append("（来自步骤 ① 左列）\n");
+                }
+                s_textBuilder.Append("   【守方】魔法防御 = ").Append(t.MagicDefense).Append("（来自步骤 ① 右列）\n");
+                s_textBuilder.Append("   【攻方】魔法穿透 = ").Append(record.EffectiveMagicPen * 100f).Append("%\n");
+                s_textBuilder.Append("   有效魔防 = 【守方】魔防 × (1 - 【攻方】穿魔)\n");
+                s_textBuilder.Append("           = ").Append(t.MagicDefense).Append(" × (1 - ").Append(record.EffectiveMagicPen * 100f).Append("%) = ").Append(record.EffectiveMagicDef).Append("\n");
+                s_textBuilder.Append("   魔法: 【攻方】魔攻 × 100/(100+有效魔防)\n");
+                s_textBuilder.Append("       = ").Append(record.EffectiveMagicAtk).Append(" × 100/(100+").Append(record.EffectiveMagicDef).Append(") = ").Append(record.MagicDamage).Append("\n");
             }
             if (record.TrueDamageApplied > 0f)
             {
-                s_textBuilder.Append("   真伤: ").Append(record.TrueDamageApplied).Append("（无视防御）\n");
+                s_textBuilder.Append("   【攻方】真实伤害 = ").Append(record.TrueDamageApplied);
+                if (HasNonIdentityMultiplier(record.Multiplier))
+                {
+                    s_textBuilder.Append("（来自步骤 ② 左列，无视【守方】防御）\n");
+                }
+                else
+                {
+                    s_textBuilder.Append("（来自步骤 ① 左列，无视【守方】防御）\n");
+                }
             }
-            s_textBuilder.Append("   基础伤害 = ").Append(record.BaseDamage);
+            s_textBuilder.Append("   基础伤害 = 物理 + 魔法 + 真伤 = ").Append(record.BaseDamage);
             AddFormulaStep(s_textBuilder.ToString());
 
-            // ─── 步骤 ⑤：暴击判定 ───
+            // ─── 步骤 ⑤：暴击判定（【攻方】暴击率/暴击伤害） ───
             s_textBuilder.Clear();
             s_textBuilder.Append(GetStepCircle(stepNum++)).Append(" 暴击判定：\n");
-            s_textBuilder.Append("   暴击率 ").Append(record.EffectiveCritRate * 100f).Append("%");
-            s_textBuilder.Append(", 暴击伤害 ×").Append(record.EffectiveCritDmg).Append("\n");
+            s_textBuilder.Append("   【攻方】暴击率 = ").Append(record.EffectiveCritRate * 100f).Append("%（来自步骤 ① 左列");
+            if (HasNonIdentityMultiplier(record.Multiplier))
+            {
+                s_textBuilder.Append("，经步骤 ② 倍率调整");
+            }
+            s_textBuilder.Append("）\n");
+            s_textBuilder.Append("   【攻方】暴击伤害 = ×").Append(record.EffectiveCritDmg).Append("\n");
             if (record.IsCritical)
             {
-                s_textBuilder.Append("   ✓ 触发暴击: ").Append(record.BaseDamage).Append(" × ").Append(record.EffectiveCritDmg);
+                s_textBuilder.Append("   ✓ 触发暴击: 基础伤害 × 【攻方】暴击伤害\n");
+                s_textBuilder.Append("              = ").Append(record.BaseDamage).Append(" × ").Append(record.EffectiveCritDmg);
                 s_textBuilder.Append(" = ").Append(record.FinalDamage);
             }
             else
             {
-                s_textBuilder.Append("   ✗ 未暴击: ").Append(record.FinalDamage).Append("（= 基础伤害）");
+                s_textBuilder.Append("   ✗ 未暴击: 最终伤害 = 基础伤害 = ").Append(record.FinalDamage);
             }
             AddFormulaStep(s_textBuilder.ToString());
 
@@ -857,7 +1030,7 @@ namespace AFrameWork.GameUI
             {
                 step.AddToClassList(modifierClass);
             }
-            m_formulaStepsContainer?.Add(step);
+            m_formulaStepsScrollView?.contentContainer.Add(step);
         }
 
         // ══════════════════════════════════════════════════════════════════════════
