@@ -37,6 +37,7 @@
     top: 0;
     right: 0;
     width: 100%;
+    height: 80%;  /* 设置固定高度，避免内容超出屏幕 */
     background-color: var(--attack-calc-panel-bg-color);
     border-radius: var(--attack-calc-panel-border-radius);
     border-width: 0;
@@ -108,6 +109,7 @@
     margin-bottom: 2px;
     flex-grow: 0;
     flex-shrink: 0;
+    max-height: 180px;  /* 限制卡片区域最大高度，留出空间给公式区域 */
 }
 
 .attack-calc-panel__cards-row {
@@ -271,6 +273,7 @@
 .attack-calc-panel__formula-steps {
     flex-grow: 1;
     flex-shrink: 1;
+    min-height: 120px;  /* 确保 ScrollView 有足够高度显示滚动条 */
 }
 
 .attack-calc-panel__formula-step {
@@ -278,7 +281,7 @@
     flex-direction: column;
     padding: 1px 0;
     color: var(--attack-calc-panel-text-color);
-    white-space: normal;
+    white-space: pre-line;  /* 保留代码换行符，允许长行必要时折行 */
     font-size: 11px;
 }
 
