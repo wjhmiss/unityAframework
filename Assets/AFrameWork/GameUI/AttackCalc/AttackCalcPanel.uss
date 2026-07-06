@@ -29,15 +29,15 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   根容器：全屏覆盖
+   根容器：全屏覆盖，自适应高度
    ════════════════════════════════════════════════════════════════════ */
 .attack-calc-panel {
     position: absolute;
     left: 0;
     top: 0;
     right: 0;
+    bottom: 0;  /* 占满整个屏幕高度 */
     width: 100%;
-    height: 80%;  /* 设置固定高度，避免内容超出屏幕 */
     background-color: var(--attack-calc-panel-bg-color);
     border-radius: var(--attack-calc-panel-border-radius);
     border-width: 0;
@@ -46,6 +46,29 @@
     flex-direction: column;
     font-size: var(--attack-calc-panel-font-size);
     color: var(--attack-calc-panel-text-color);
+}
+
+/* 默认（normal）布局：中等屏幕 */
+.attack-calc-panel--normal {
+    --attack-calc-panel-font-size: 12px;
+    --attack-calc-panel-title-size: 16px;
+    --attack-calc-panel-section-size: 13px;
+}
+
+/* 紧凑布局：窄屏（< 700px），缩小字体和 padding */
+.attack-calc-panel--compact {
+    --attack-calc-panel-font-size: 10px;
+    --attack-calc-panel-title-size: 13px;
+    --attack-calc-panel-section-size: 11px;
+    --attack-calc-panel-padding: 4px;
+}
+
+/* 宽屏布局（> 1200px）：放大字体 */
+.attack-calc-panel--wide {
+    --attack-calc-panel-font-size: 14px;
+    --attack-calc-panel-title-size: 18px;
+    --attack-calc-panel-section-size: 15px;
+    --attack-calc-panel-padding: 8px;
 }
 
 /* 隐藏状态 */
@@ -97,7 +120,7 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   Body：卡片区域（居中水平排列，占满可用宽度）
+   Body：卡片区域（居中水平排列，自适应高度）
    ════════════════════════════════════════════════════════════════════ */
 .attack-calc-panel__body {
     display: flex;
@@ -109,7 +132,17 @@
     margin-bottom: 2px;
     flex-grow: 0;
     flex-shrink: 0;
-    max-height: 180px;  /* 限制卡片区域最大高度，留出空间给公式区域 */
+    max-height: 200px;  /* 限制卡片区域最大高度，留出空间给公式区域 */
+}
+
+/* 紧凑布局：压缩卡片区域高度 */
+.attack-calc-panel--compact .attack-calc-panel__body {
+    max-height: 150px;
+}
+
+/* 宽屏布局：放宽卡片区域高度 */
+.attack-calc-panel--wide .attack-calc-panel__body {
+    max-height: 240px;
 }
 
 .attack-calc-panel__cards-row {
@@ -137,15 +170,33 @@
 .attack-calc-panel__object-card {
     display: flex;
     flex-direction: column;
-    min-width: 200px;
-    max-width: 240px;
+    min-width: 160px;
+    max-width: 280px;
+    flex-basis: 220px;  /* 弹性基础宽度 */
     padding: 4px;
     margin: 2px;
     border-width: 1px;
     border-color: var(--attack-calc-panel-border-color);
     border-radius: 4px;
     background-color: rgba(30, 30, 45, 0.5);
-    flex-shrink: 0;
+    flex-shrink: 1;  /* 允许收缩以适应窄屏 */
+    flex-grow: 1;
+}
+
+/* 紧凑布局：缩小卡片 */
+.attack-calc-panel--compact .attack-calc-panel__object-card {
+    min-width: 120px;
+    flex-basis: 150px;
+    padding: 2px;
+    margin: 1px;
+}
+
+/* 宽屏布局：放大卡片 */
+.attack-calc-panel--wide .attack-calc-panel__object-card {
+    min-width: 220px;
+    max-width: 320px;
+    flex-basis: 260px;
+    padding: 6px;
 }
 
 .attack-calc-panel__object-card--attacker {
@@ -283,6 +334,18 @@
     color: var(--attack-calc-panel-text-color);
     white-space: pre;  /* 保留换行符，禁止折行（长行水平滚动） */
     font-size: 11px;
+}
+
+/* 紧凑布局：缩小公式字体 */
+.attack-calc-panel--compact .attack-calc-panel__formula-step {
+    font-size: 9px;
+    padding: 0;
+}
+
+/* 宽屏布局：放大公式字体 */
+.attack-calc-panel--wide .attack-calc-panel__formula-step {
+    font-size: 13px;
+    padding: 2px 0;
 }
 
 .attack-calc-panel__formula-step--result {

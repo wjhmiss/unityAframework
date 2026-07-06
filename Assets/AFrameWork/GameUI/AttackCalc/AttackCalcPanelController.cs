@@ -63,6 +63,15 @@ namespace AFrameWork.GameUI
         private const string k_ClassAttrColDefender = "attack-calc-panel__attr-col--defender";
         private const string k_ClassHidden = "attack-calc-panel--hidden";
 
+        // 响应式布局 class（根据面板宽度切换）
+        private const string k_ClassLayoutCompact = "attack-calc-panel--compact";  // 宽度 < 700px
+        private const string k_ClassLayoutNormal = "attack-calc-panel--normal";    // 700px ~ 1200px
+        private const string k_ClassLayoutWide = "attack-calc-panel--wide";        // 宽度 > 1200px
+
+        // 响应式断点（像素）
+        private const int k_layoutCompactMaxWidth = 700;
+        private const int k_layoutWideMinWidth = 1200;
+
         /// <summary>面板检查新攻击记录的间隔（秒），避免每帧轮询</summary>
         private const float k_updateInterval = 0.1f;
 
@@ -93,6 +102,8 @@ namespace AFrameWork.GameUI
         private bool m_isVisible = true;
         // 记录上次展示的 AttackRecord 时间戳，避免相同记录重复重建 UI
         private float m_lastDisplayedTimestamp = -1f;
+        // 当前响应式布局 class（避免重复切换）
+        private string m_currentLayoutClass;
 
         // 复用的 StringBuilder（避免每次更新分配新字符串）
         private static readonly StringBuilder s_textBuilder = new StringBuilder(512);
@@ -211,12 +222,21 @@ namespace AFrameWork.GameUI
             {
                 m_closeButton.clicked += HandleCloseButtonClicked;
             }
+
+            // 注册几何变化事件，实现响应式自适应布局
+            if (m_panelRoot != null)
+            {
+                m_panelRoot.RegisterCallback<GeometryChangedEvent>(HandlePanelGeometryChanged);
+            }
         }
 
         private void Start()
         {
             // 尝试展示当前 LastAttackRecord（若有）
             TryRefreshFromLastRecord();
+
+            // 首次应用响应式布局
+            ApplyResponsiveLayout();
         }
 
         private void Update()
@@ -246,6 +266,12 @@ namespace AFrameWork.GameUI
             {
                 m_closeButton.clicked -= HandleCloseButtonClicked;
             }
+
+            // 注销几何变化事件
+            if (m_panelRoot != null)
+            {
+                m_panelRoot.UnregisterCallback<GeometryChangedEvent>(HandlePanelGeometryChanged);
+            }
         }
 
         private void OnDestroy()
@@ -267,6 +293,7 @@ namespace AFrameWork.GameUI
             m_isVisible = true;
             m_panelRoot.RemoveFromClassList(k_ClassHidden);
             m_lastUpdateTime = 0f; // 强制下一帧立即检查
+            ApplyResponsiveLayout();
         }
 
         /// <summary>隐藏面板</summary>
@@ -275,6 +302,61 @@ namespace AFrameWork.GameUI
             if (m_panelRoot == null) return;
             m_isVisible = false;
             m_panelRoot.AddToClassList(k_ClassHidden);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // 响应式布局（根据面板宽度动态切换样式）
+        // ══════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// 面板几何变化回调：窗口缩放或分辨率改变时触发，重新应用响应式布局。
+        /// </summary>
+        private void HandlePanelGeometryChanged(GeometryChangedEvent evt)
+        {
+            ApplyResponsiveLayout();
+        }
+
+        /// <summary>
+        /// 根据面板当前宽度切换响应式 class（compact/normal/wide）。
+        /// USS 中针对不同 class 设置不同字体大小、卡片宽度、padding 等。
+        /// </summary>
+        private void ApplyResponsiveLayout()
+        {
+            if (m_panelRoot == null) return;
+
+            float width = m_panelRoot.resolvedStyle.width;
+            if (float.IsNaN(width) || width <= 0f) return;
+
+            string targetLayoutClass;
+            if (width < k_layoutCompactMaxWidth)
+            {
+                targetLayoutClass = k_ClassLayoutCompact;
+            }
+            else if (width >= k_layoutWideMinWidth)
+            {
+                targetLayoutClass = k_ClassLayoutWide;
+            }
+            else
+            {
+                targetLayoutClass = k_ClassLayoutNormal;
+            }
+
+            // 已是相同布局则跳过
+            if (targetLayoutClass == m_currentLayoutClass) return;
+
+            // 移除旧布局 class
+            if (!string.IsNullOrEmpty(m_currentLayoutClass))
+            {
+                m_panelRoot.RemoveFromClassList(m_currentLayoutClass);
+            }
+
+            // 添加新布局 class
+            m_panelRoot.AddToClassList(targetLayoutClass);
+            m_currentLayoutClass = targetLayoutClass;
+
+#if UNITY_EDITOR
+            Debug.Log($"[{GetType().Name}] 响应式布局切换为 {targetLayoutClass}（宽度={width:F0}px）", this);
+#endif
         }
 
         /// <summary>切换面板显隐</summary>
@@ -932,7 +1014,7 @@ namespace AFrameWork.GameUI
             atkLabel.AddToClassList(k_ClassFormulaStep);
             atkCol.Add(atkLabel);
 
-            // 右列：守方防御与减免（压缩计算公式）
+            // 右列：守方防御与详细计算公式
             var defCol = new VisualElement();
             defCol.AddToClassList(k_ClassAttrCol);
             defCol.AddToClassList(k_ClassAttrColDefender);
@@ -941,12 +1023,36 @@ namespace AFrameWork.GameUI
             s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 守方防御/减免：\n");
             if (t != null)
             {
-                s_textBuilder.Append("物防").Append(t.PhysicalDefense).Append("→").Append(record.EffectivePhysDef);
-                s_textBuilder.Append(", 魔防").Append(t.MagicDefense).Append("→").Append(record.EffectiveMagicDef);
-                s_textBuilder.Append(", 物伤=").Append(record.PhysicalDamage);
-                s_textBuilder.Append(", 魔伤=").Append(record.MagicDamage);
-                s_textBuilder.Append(", 真伤=").Append(record.TrueDamageApplied);
-                s_textBuilder.Append(", 基础=").Append(record.BaseDamage);
+                // 物理伤害详细公式：有效物防 = 守方物防 × (1 - 攻方穿甲)，物伤 = 攻方物攻 × 100/(100+有效物防)
+                if (record.PhysicalDamage > 0f)
+                {
+                    s_textBuilder.Append("有效物防=守方物防").Append(t.PhysicalDefense);
+                    s_textBuilder.Append("×(1-攻方穿甲").Append(record.EffectiveArmorPen * 100f).Append("%)=");
+                    s_textBuilder.Append(record.EffectivePhysDef).Append("\n");
+                    s_textBuilder.Append("物伤=攻方物攻").Append(record.EffectivePhysAtk);
+                    s_textBuilder.Append("×100/(100+有效物防").Append(record.EffectivePhysDef).Append(")=");
+                    s_textBuilder.Append(record.PhysicalDamage).Append("\n");
+                }
+                // 魔法伤害详细公式
+                if (record.MagicDamage > 0f)
+                {
+                    s_textBuilder.Append("有效魔防=守方魔防").Append(t.MagicDefense);
+                    s_textBuilder.Append("×(1-攻方穿魔").Append(record.EffectiveMagicPen * 100f).Append("%)=");
+                    s_textBuilder.Append(record.EffectiveMagicDef).Append("\n");
+                    s_textBuilder.Append("魔伤=攻方魔攻").Append(record.EffectiveMagicAtk);
+                    s_textBuilder.Append("×100/(100+有效魔防").Append(record.EffectiveMagicDef).Append(")=");
+                    s_textBuilder.Append(record.MagicDamage).Append("\n");
+                }
+                // 真实伤害（无视防御）
+                if (record.TrueDamageApplied > 0f)
+                {
+                    s_textBuilder.Append("真伤=攻方真伤").Append(record.TrueDamageApplied).Append("(无视防御)\n");
+                }
+                // 基础伤害 = 物伤 + 魔伤 + 真伤
+                s_textBuilder.Append("基础=物伤").Append(record.PhysicalDamage).Append("+");
+                s_textBuilder.Append("魔伤").Append(record.MagicDamage).Append("+");
+                s_textBuilder.Append("真伤").Append(record.TrueDamageApplied).Append("=");
+                s_textBuilder.Append(record.BaseDamage);
             }
             var defLabel = new Label(s_textBuilder.ToString());
             defLabel.AddToClassList(k_ClassFormulaStep);
