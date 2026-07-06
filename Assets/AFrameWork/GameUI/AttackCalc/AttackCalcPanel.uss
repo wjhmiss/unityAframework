@@ -1,21 +1,19 @@
 :root {
-    /* 与 UserPanel 共用的视觉令牌（保持色板一致） */
-    --attack-calc-panel-width: 560px;
-    --attack-calc-panel-bg-color: rgba(15, 15, 25, 0.85);
+    --attack-calc-panel-bg-color: rgba(15, 15, 25, 0.92);
     --attack-calc-panel-border-color: rgba(100, 150, 200, 0.4);
-    --attack-calc-panel-border-radius: 6px;
-    --attack-calc-panel-padding: 8px;
+    --attack-calc-panel-border-radius: 0px;
+    --attack-calc-panel-padding: 6px;
 
     --attack-calc-panel-text-color: rgb(220, 220, 230);
     --attack-calc-panel-title-color: rgb(255, 215, 0);
     --attack-calc-panel-value-color: rgb(100, 255, 150);
     --attack-calc-panel-section-color: rgba(100, 150, 200, 0.3);
 
-    --attack-calc-panel-font-size: 11px;
-    --attack-calc-panel-title-size: 14px;
-    --attack-calc-panel-section-size: 12px;
-    --attack-calc-panel-row-height: 18px;
-    --attack-calc-panel-gap: 4px;
+    --attack-calc-panel-font-size: 12px;
+    --attack-calc-panel-title-size: 16px;
+    --attack-calc-panel-section-size: 13px;
+    --attack-calc-panel-row-height: 16px;
+    --attack-calc-panel-gap: 3px;
 
     /* 攻击者/目标卡片配色（区分角色） */
     --attack-calc-panel-attacker-bg: rgba(80, 140, 220, 0.12);
@@ -31,17 +29,17 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   根容器：右上角浮动面板（避开左上角的 UserPanel）
+   根容器：全屏覆盖
    ════════════════════════════════════════════════════════════════════ */
 .attack-calc-panel {
     position: absolute;
-    right: 10px;
-    top: 10px;
-    width: var(--attack-calc-panel-width);
+    left: 0;
+    top: 0;
+    right: 0;
+    width: 100%;
     background-color: var(--attack-calc-panel-bg-color);
     border-radius: var(--attack-calc-panel-border-radius);
-    border-width: 1px;
-    border-color: var(--attack-calc-panel-border-color);
+    border-width: 0;
     padding: var(--attack-calc-panel-padding);
     display: flex;
     flex-direction: column;
@@ -62,10 +60,11 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 6px;
-    margin-bottom: 6px;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
     border-width: 0 0 1px 0;
     border-color: var(--attack-calc-panel-border-color);
+    flex-shrink: 0;
 }
 
 .attack-calc-panel__title {
@@ -87,7 +86,7 @@
     border-width: 1px;
     border-color: var(--attack-calc-panel-border-color);
     border-radius: 3px;
-    padding: 2px 6px;
+    padding: 2px 8px;
     background-color: rgba(60, 60, 80, 0.4);
 }
 
@@ -97,21 +96,25 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   Body：水平滚动容器，存放攻击对象卡片
+   Body：卡片区域（居中水平排列，占满可用宽度）
    ════════════════════════════════════════════════════════════════════ */
 .attack-calc-panel__body {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    overflow: auto;
-    padding: 4px 0;
-    margin-bottom: 6px;
+    justify-content: center;
+    overflow: hidden;
+    padding: 2px 0;
+    margin-bottom: 2px;
+    flex-grow: 0;
+    flex-shrink: 0;
 }
 
 .attack-calc-panel__cards-row {
     display: flex;
     flex-direction: row;
     align-items: stretch;
+    justify-content: center;
 }
 
 /* 攻击对象之间的箭头分隔符 */
@@ -119,9 +122,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 6px;
+    padding: 0 4px;
     color: var(--attack-calc-panel-arrow-color);
-    font-size: var(--attack-calc-panel-title-size);
+    font-size: var(--attack-calc-panel-section-size);
     -unity-font-style: bold;
     align-self: center;
 }
@@ -132,14 +135,15 @@
 .attack-calc-panel__object-card {
     display: flex;
     flex-direction: column;
-    min-width: 140px;
-    max-width: 180px;
-    padding: 6px;
+    min-width: 200px;
+    max-width: 240px;
+    padding: 4px;
     margin: 2px;
     border-width: 1px;
     border-color: var(--attack-calc-panel-border-color);
     border-radius: 4px;
     background-color: rgba(30, 30, 45, 0.5);
+    flex-shrink: 0;
 }
 
 .attack-calc-panel__object-card--attacker {
@@ -166,7 +170,7 @@
     min-height: 60px;
 }
 
-/* 悬停效果：卡片高亮 + 略放大（满足"悬停效果"需求） */
+/* 悬停效果：卡片高亮 */
 .attack-calc-panel__object-card:hover {
     border-color: var(--attack-calc-panel-title-color);
     border-width: 2px;
@@ -175,8 +179,8 @@
 .attack-calc-panel__object-header {
     display: flex;
     flex-direction: column;
-    padding-bottom: 4px;
-    margin-bottom: 4px;
+    padding-bottom: 2px;
+    margin-bottom: 2px;
     border-width: 0 0 1px 0;
     border-color: var(--attack-calc-panel-section-color);
 }
@@ -200,12 +204,23 @@
     flex-direction: column;
 }
 
+/* 卡片内参数列表：两列网格布局 */
+.attack-calc-panel__object-card .attack-calc-panel__param-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
 .attack-calc-panel__param-row {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     height: var(--attack-calc-panel-row-height);
+}
+
+/* 卡片内参数行：50% 宽度实现两列 */
+.attack-calc-panel__object-card .attack-calc-panel__param-row {
+    width: 50%;
 }
 
 .attack-calc-panel__param-label {
@@ -225,40 +240,48 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   Formula：底部公式说明区域
+   Formula：公式说明区域（占满剩余空间，无需滚动）
    ════════════════════════════════════════════════════════════════════ */
 .attack-calc-panel__formula {
     display: flex;
     flex-direction: column;
-    padding: 6px;
-    margin-top: 6px;
+    padding: 4px;
+    margin-top: 2px;
     background-color: var(--attack-calc-panel-formula-bg);
     border-width: 1px 0 0 0;
     border-color: var(--attack-calc-panel-border-color);
     border-radius: 3px;
+    flex-shrink: 0;
 }
 
 .attack-calc-panel__formula-title {
     font-size: var(--attack-calc-panel-section-size);
     -unity-font-style: bold;
     color: var(--attack-calc-panel-title-color);
-    margin-bottom: 4px;
-    padding-bottom: 2px;
+    margin-bottom: 1px;
+    padding-bottom: 1px;
     border-width: 0 0 1px 0;
     border-color: var(--attack-calc-panel-section-color);
+    flex-shrink: 0;
+}
+
+.attack-calc-panel__formula-steps {
+    display: flex;
+    flex-direction: column;
 }
 
 .attack-calc-panel__formula-step {
     display: flex;
     flex-direction: column;
-    padding: 3px 0;
+    padding: 1px 0;
     color: var(--attack-calc-panel-text-color);
     white-space: normal;
+    font-size: 11px;
 }
 
 .attack-calc-panel__formula-step--result {
-    margin-top: 4px;
-    padding-top: 4px;
+    margin-top: 2px;
+    padding-top: 2px;
     border-width: 1px 0 0 0;
     border-color: var(--attack-calc-panel-section-color);
     -unity-font-style: bold;
@@ -272,9 +295,10 @@
 }
 
 .attack-calc-panel__empty-hint {
-    padding: 12px;
+    padding: 20px;
     color: var(--attack-calc-panel-text-color);
     opacity: 0.6;
     -unity-text-align: middle-center;
     white-space: normal;
+    font-size: var(--attack-calc-panel-section-size);
 }

@@ -141,7 +141,7 @@ namespace AFrameWork.Core
         /// </summary>
         public static float Apply(float baseValue, float multiplier)
         {
-            return multiplier < 0f ? baseValue : baseValue * multiplier;
+            return multiplier <= 0f ? baseValue : baseValue * multiplier;
         }
     }
 
