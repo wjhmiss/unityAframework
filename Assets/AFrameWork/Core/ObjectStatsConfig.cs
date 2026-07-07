@@ -373,7 +373,7 @@ namespace AFrameWork.Core
 
         // 伤害持续时间（秒）
         [SerializeField]
-        [Tooltip("伤害持续时间，单位：秒（持续伤害的总时长）")]
+        [Tooltip("伤害持续时间，单位：秒（持续伤害的总时长，-1或0 表示永久存活（无时间限制）））")]
         public float DamageDuration = 0f;
 
         // 是否可以造成伤害
@@ -457,34 +457,53 @@ namespace AFrameWork.Core
         {
             return new ObjectStatsConfig
             {
-                Type = ObjectType.Warrior,
-                FactionID = 1,
-                MaxHealth = 100f,
-                CurrentHealth = 100f,
-                PhysicalAttack = 1.2f,
-                PhysicalDefense = 15f,
-                TrueDamage = 0.1f,
-                MagicAttack = 1.1f,
-                MagicDefense = 12f,
-                MoveSpeed = 6f,
-                AttackSpeed = 1.5f,
-                CastSpeed = 1.2f,
-                CriticalRate = 0.2f,
-                CriticalDamageMultiplier = 2.5f,
-                ArmorPenetration = 0.15f,
-                MagicPenetration = 0.1f,
-                HealthRegeneration = 2f,
-                ManaRegeneration = 3f,
-                MaxMana = 80f,
-                CurrentMana = 80f,
-                CooldownReduction = 0.1f,
-                EvasionRate = 0.05f,
-                HitRate = 0.95f,
-                AttackRange = 3f,
-                VisionRange = 12f,
-                Experience = 0f,
-                Level = 1,
-                Gold = 0
+                // 身份/阵营
+                Type = ObjectType.Warrior,          // 战士类型
+                FactionID = 1,                      // 玩家阵营ID
+
+                // 生命值
+                MaxHealth = 100f,                   // 最大生命值
+                CurrentHealth = 100f,               // 当前生命值
+
+                // 攻击属性
+                PhysicalAttack = 1.2f,              // 物理攻击力
+                PhysicalDefense = 15f,              // 物理防御力
+                TrueDamage = 0.1f,                  // 真实伤害（无视防御）
+                MagicAttack = 1.1f,                 // 魔法攻击力
+                MagicDefense = 12f,                 // 魔法防御力
+
+                // 速度属性
+                MoveSpeed = 6f,                     // 移动速度（米/秒）
+                AttackSpeed = 1.5f,                 // 攻击速度（次/秒）
+                CastSpeed = 1.2f,                   // 施法速度（次/秒）
+
+                // 暴击属性
+                CriticalRate = 0.2f,                // 暴击率（20%）
+                CriticalDamageMultiplier = 2.5f,    // 暴击伤害倍率（2.5倍）
+
+                // 穿透属性
+                ArmorPenetration = 0.15f,           // 护甲穿透率（15%）
+                MagicPenetration = 0.1f,            // 魔法穿透率（10%）
+
+                // 恢复属性
+                HealthRegeneration = 2f,            // 生命恢复（点/秒）
+                ManaRegeneration = 3f,              // 魔法恢复（点/秒）
+
+                // 魔法值
+                MaxMana = 80f,                      // 最大魔法值
+                CurrentMana = 80f,                  // 当前魔法值
+
+                // 特殊属性
+                CooldownReduction = 0.1f,           // 冷却缩减（10%）
+                EvasionRate = 0.05f,                // 闪避率（5%）
+                HitRate = 0.95f,                    // 命中率（95%）
+                AttackRange = 3f,                   // 攻击范围（米）
+                VisionRange = 12f,                  // 视野范围（米）
+
+                // 成长属性
+                Experience = 0f,                    // 经验值
+                Level = 1,                          // 等级
+                Gold = 0                            // 金币
             };
         }
 
@@ -495,13 +514,20 @@ namespace AFrameWork.Core
         {
             return new ObjectStatsConfig
             {
-                Type = ObjectType.Weapon,
-                FactionID = 0,
-                MaxHealth = 100f,
-                CurrentHealth = 100f,
-                PhysicalAttack = 5f,
-                AttackRange = 1.5f,
-                CanDealDamage = true
+                // 身份/阵营
+                Type = ObjectType.Weapon,           // 武器类型
+                FactionID = 0,                      // 阵营ID（由持有者继承，0=默认）
+
+                // 生命值
+                MaxHealth = 100f,                   // 最大生命值（武器不消耗生命值，仅占位）
+                CurrentHealth = 100f,               // 当前生命值
+
+                // 攻击属性
+                PhysicalAttack = 5f,                // 物理攻击力（剑的基础伤害）
+                AttackRange = 1.5f,                 // 攻击范围（米）
+
+                // 伤害开关
+                CanDealDamage = true                // 启用伤害判定
             };
         }
 
@@ -512,17 +538,26 @@ namespace AFrameWork.Core
         {
             return new ObjectStatsConfig
             {
-                Type = ObjectType.Trap,
-                FactionID = 100,
-                MaxHealth = 1f,
-                CurrentHealth = 1f,
-                MagicAttack = 25f,
-                MagicPenetration = 0.2f,
-                CastSpeed = 2f,
-                DamageRadius = 5f,
-                IsContinuousDamage = true,
-                DamageDuration = 10f,
-                CanDealDamage = true
+                // 身份/阵营
+                Type = ObjectType.Trap,             // 陷阱类型
+                FactionID = 100,                    // 中立阵营（可伤害所有非中立阵营）
+
+                // 生命值
+                MaxHealth = 1f,                     // 最大生命值（火球一击即毁）
+                CurrentHealth = 1f,                 // 当前生命值
+
+                // 攻击属性
+                MagicAttack = 25f,                  // 魔法攻击力（火球主要伤害来源）
+                MagicPenetration = 0.2f,            // 魔法穿透率（20%，无视部分魔防）
+
+                // 速度属性
+                CastSpeed = 2f,                     // 施法频率（2次/秒，即每0.5秒一次持续伤害）
+
+                // 伤害配置
+                DamageRadius = 5f,                  // 伤害范围（5米，同时作为触发器半径）
+                IsContinuousDamage = true,          // 启用持续伤害（OnTriggerStay按间隔触发）
+                DamageDuration = -1f,               // 持续时间（10秒后自动销毁）
+                CanDealDamage = true                // 启用伤害判定
             };
         }
 
@@ -533,32 +568,51 @@ namespace AFrameWork.Core
         {
             return new ObjectStatsConfig
             {
-                Type = ObjectType.Tank,
-                FactionID = 11,
-                MaxHealth = 100f,
-                CurrentHealth = 100f,
-                PhysicalAttack = 15f,
-                PhysicalDefense = 10f,
-                TrueDamage = 3f,
-                MagicAttack = 5f,
-                MagicDefense = 8f,
-                MoveSpeed = 4f,
-                AttackSpeed = 1.0f,
-                CastSpeed = 1.0f,
-                CriticalRate = 0.1f,
-                CriticalDamageMultiplier = 2.0f,
-                ArmorPenetration = 0.1f,
-                MagicPenetration = 0.05f,
-                HealthRegeneration = 1f,
-                ManaRegeneration = 1f,
-                MaxMana = 50f,
-                CurrentMana = 50f,
-                CooldownReduction = 0.05f,
-                EvasionRate = 0.03f,
-                HitRate = 0.9f,
-                AttackRange = 2f,
-                VisionRange = 10f,
-                Level = 1
+                // 身份/阵营
+                Type = ObjectType.Tank,             // 坦克类型
+                FactionID = 11,                     // 怪物阵营ID
+
+                // 生命值
+                MaxHealth = 100f,                   // 最大生命值
+                CurrentHealth = 100f,               // 当前生命值
+
+                // 攻击属性
+                PhysicalAttack = 15f,               // 物理攻击力
+                PhysicalDefense = 10f,              // 物理防御力
+                TrueDamage = 3f,                    // 真实伤害（无视防御）
+                MagicAttack = 5f,                   // 魔法攻击力
+                MagicDefense = 8f,                  // 魔法防御力
+
+                // 速度属性
+                MoveSpeed = 4f,                     // 移动速度（米/秒）
+                AttackSpeed = 1.0f,                 // 攻击速度（次/秒）
+                CastSpeed = 1.0f,                   // 施法速度（次/秒）
+
+                // 暴击属性
+                CriticalRate = 0.1f,                // 暴击率（10%）
+                CriticalDamageMultiplier = 2.0f,    // 暴击伤害倍率（2倍）
+
+                // 穿透属性
+                ArmorPenetration = 0.1f,            // 护甲穿透率（10%）
+                MagicPenetration = 0.05f,           // 魔法穿透率（5%）
+
+                // 恢复属性
+                HealthRegeneration = 1f,            // 生命恢复（点/秒）
+                ManaRegeneration = 1f,              // 魔法恢复（点/秒）
+
+                // 魔法值
+                MaxMana = 50f,                      // 最大魔法值
+                CurrentMana = 50f,                  // 当前魔法值
+
+                // 特殊属性
+                CooldownReduction = 0.05f,          // 冷却缩减（5%）
+                EvasionRate = 0.03f,                // 闪避率（3%）
+                HitRate = 0.9f,                     // 命中率（90%）
+                AttackRange = 2f,                   // 攻击范围（米）
+                VisionRange = 10f,                  // 视野范围（米）
+
+                // 成长属性
+                Level = 1                           // 等级
             };
         }
 

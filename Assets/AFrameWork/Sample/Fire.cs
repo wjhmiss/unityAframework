@@ -243,7 +243,9 @@ namespace AFrameWork.Sample
             }
 
             ObjectStatsConfig stats = GetObjectStats();
-            if (Time.time - m_creationTime >= stats.DamageDuration)
+            // DamageDuration <= 0 表示永久存活（无时间限制）
+            float duration = stats.DamageDuration;
+            if (duration > 0f && Time.time - m_creationTime >= duration)
             {
                 DestroyFire();
             }
