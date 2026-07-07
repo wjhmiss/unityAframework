@@ -67,6 +67,10 @@ namespace AFrameWork.Core.SmallBase
         // 持有快照而非活引用：避免 owner 销毁后 fake-null，且发射时属性锁定可预测
         protected ObjectStatsConfig m_attackerStats;
 
+        // ===== Owner ObjectBase 活引用（仅用于 UI 实时刷新生命值/魔法值，不参与伤害计算） =====
+        // 伤害计算使用 m_attackerStats 克隆快照；此引用仅供 SetLastAttackRefs 传递给 UI 面板
+        protected ObjectBase m_ownerRef;
+
         /// <summary>
         /// 子弹类型共享属性（所有实例公用一个）。子类重写返回 static readonly 实例。
         /// 命中时与 m_attackerStats（owner 克隆）一起传给 CalculateAttack 累加（类似 Sword 的武器+持有者）。
@@ -184,6 +188,9 @@ namespace AFrameWork.Core.SmallBase
                 // 克隆 owner 属性快照：发射时锁定攻击/穿透/暴击/命中等战斗属性，
                 // owner 后续 buff/装备变化不影响已发射的投射物，且 owner 销毁后仍可安全读取
                 m_attackerStats = ownerStats.Clone();
+
+                // 保存 owner 活引用（仅用于 UI 实时刷新，不参与伤害计算）
+                m_ownerRef = owner;
             }
             else
             {
@@ -193,6 +200,7 @@ namespace AFrameWork.Core.SmallBase
                 m_ownerAllianceID = -1;
                 m_ownerPVPMode = PVPMode.None;
                 m_attackerStats = null;
+                m_ownerRef = null;
             }
 
             // 子类覆盖运动参数
@@ -242,6 +250,8 @@ namespace AFrameWork.Core.SmallBase
 
             // 释放 owner 属性快照引用（下次 Initialize 会重新 Clone）
             m_attackerStats = null;
+            // 释放 owner 活引用（下次 Initialize 会重新设置）
+            m_ownerRef = null;
 
             if (m_rigidbody != null)
             {
@@ -311,6 +321,20 @@ namespace AFrameWork.Core.SmallBase
 
             // 通过 ObjectBase.TakeDamage 应用：保留无敌检查、OnDamaged 回调、OnDeath 处理
             target.TakeDamage(finalDamage);
+
+            // 记录 ObjectBase 活引用供 UI 实时读取生命值/魔法值
+            // 攻击方引用与 AttackerSnapshots 对应：sharedStats 位置为 null（无 ObjectBase），m_attackerStats 位置为 m_ownerRef
+            if (sharedStats != null)
+            {
+                // 攻击方 = [子弹共享属性, owner 克隆] → 引用 = [null, m_ownerRef]
+                // 显式转换 null 为 ObjectBase，避免被解释为 params 数组本身为 null
+                ObjectStatsConfig.SetLastAttackRefs(target, (ObjectBase)null, m_ownerRef);
+            }
+            else
+            {
+                // 攻击方 = [owner 克隆] → 引用 = [m_ownerRef]
+                ObjectStatsConfig.SetLastAttackRefs(target, m_ownerRef);
+            }
 
             OnHit(target, finalDamage);
 

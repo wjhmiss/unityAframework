@@ -370,7 +370,8 @@
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: center;  /* 居中排列，向中间靠近 */
+    gap: 8px;  /* 两列间隔 */
     padding: 2px 0;
     margin-bottom: 2px;
 }
@@ -378,8 +379,7 @@
 .attack-calc-panel__attr-col {
     display: flex;
     flex-direction: column;
-    flex: 1 0 auto;
-    min-width: 50%;
+    flex: 0 0 45%;  /* 固定宽度 45%，不自动扩展 */
     padding: 2px;
     margin: 2px;
     border-width: 1px;

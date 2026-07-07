@@ -99,7 +99,7 @@ namespace AFrameWork.GameUI
 
         // 运行时状态
         private float m_lastUpdateTime;
-        private bool m_isVisible = true;
+        private bool m_isVisible = false;  // 初始隐藏，避免在编辑器非 Play 模式下挡住场景
         // 记录上次展示的 AttackRecord 时间戳，避免相同记录重复重建 UI
         private float m_lastDisplayedTimestamp = -1f;
         // 当前响应式布局 class（避免重复切换）
@@ -212,8 +212,8 @@ namespace AFrameWork.GameUI
 
             CacheElements(root);
 
-            // 首次显示空状态
-            ShowEmptyState();
+            // 初始隐藏面板（避免在编辑器非 Play 模式下挡住场景）
+            Hide();
         }
 
         private void OnEnable()
@@ -622,9 +622,10 @@ namespace AFrameWork.GameUI
             var paramList = new VisualElement();
             paramList.AddToClassList(k_ClassParamList);
 
-            AddParamRow(paramList, "物理攻击", $"{stats.PhysicalAttack:F0}");
-            AddParamRow(paramList, "魔法攻击", $"{stats.MagicAttack:F0}");
-            AddParamRow(paramList, "真实伤害", $"{stats.TrueDamage:F0}");
+            // 攻击类数值使用 FormatDecimalValue（保留最多4位小数，去除尾部多余的零）
+            AddParamRow(paramList, "物理攻击", FormatDecimalValue(stats.PhysicalAttack));
+            AddParamRow(paramList, "魔法攻击", FormatDecimalValue(stats.MagicAttack));
+            AddParamRow(paramList, "真实伤害", FormatDecimalValue(stats.TrueDamage));
             AddParamRow(paramList, "命中率", $"{stats.HitRate * 100f:F0}%");
             AddParamRow(paramList, "暴击率", $"{stats.CriticalRate * 100f:F0}%");
             AddParamRow(paramList, "暴击伤害", $"{stats.CriticalDamageMultiplier * 100f:F0}%");
@@ -644,8 +645,9 @@ namespace AFrameWork.GameUI
             var paramList = new VisualElement();
             paramList.AddToClassList(k_ClassParamList);
 
-            AddParamRow(paramList, "物理防御", $"{stats.PhysicalDefense:F0}");
-            AddParamRow(paramList, "魔法防御", $"{stats.MagicDefense:F0}");
+            // 防御类数值使用 FormatDecimalValue（保留最多4位小数，去除尾部多余的零）
+            AddParamRow(paramList, "物理防御", FormatDecimalValue(stats.PhysicalDefense));
+            AddParamRow(paramList, "魔法防御", FormatDecimalValue(stats.MagicDefense));
             AddParamRow(paramList, "闪避率", $"{stats.EvasionRate * 100f:F0}%");
 
             // 实时生命值/魔法值（初始值用快照，后续由 RefreshLiveData 从活引用更新）
@@ -653,6 +655,31 @@ namespace AFrameWork.GameUI
             mpLabel = AddParamRow(paramList, "当前魔法", $"{stats.CurrentMana:F0}/{stats.MaxMana:F0}");
 
             card.Add(paramList);
+        }
+
+        /// <summary>
+        /// 格式化数值：保留最多4位小数，去除尾部多余的零。
+        /// 支持小数值如 0.3, 0.03, 0.003, 0.0003，但不会显示 0.3000。
+        /// 大于等于1的数值显示整数（如 10 → "10"）。
+        /// </summary>
+        private static string FormatDecimalValue(float value)
+        {
+            // 大于等于1时，显示整数
+            if (value >= 1f)
+            {
+                return ((int)value).ToString();
+            }
+
+            // 小于1时，保留最多4位小数，去除尾部多余的零
+            string formatted = value.ToString("F4");
+            // 去除尾部零
+            formatted = formatted.TrimEnd('0');
+            // 如果去除后只剩小数点，则去除小数点（如 0.0000 → "0." → "0"）
+            if (formatted.EndsWith('.') || formatted.EndsWith(','))
+            {
+                formatted = "0";
+            }
+            return formatted;
         }
 
         /// <summary>添加一行参数（label + value），返回 value Label 供后续动态更新</summary>
@@ -938,42 +965,49 @@ namespace AFrameWork.GameUI
             var evasionRow = new VisualElement();
             evasionRow.AddToClassList(k_ClassAttrRow);
 
-            // 左列：攻方命中率（一行显示）
+            // 左列：攻方命中率 + 未命中概率公式
             var hitCol = new VisualElement();
             hitCol.AddToClassList(k_ClassAttrCol);
             hitCol.AddToClassList(k_ClassAttrColAttacker);
 
             s_textBuilder.Clear();
             s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 命中判定（攻方）：\n");
-            s_textBuilder.Append("命中率").Append(record.SumHitRate * 100f).Append("%");
+            s_textBuilder.Append("命中率").Append(record.SumHitRate * 100f).Append("%\n");
+            // 显示未命中概率公式
+            float missRate = 1f - record.SumHitRate;
+            s_textBuilder.Append("未命中=100%-命中率").Append(record.SumHitRate * 100f).Append("%=");
+            s_textBuilder.Append(missRate * 100f).Append("%");
             if (HasNonIdentityMultiplier(record.Multiplier))
             {
-                s_textBuilder.Append(", 未受倍率影响");
+                s_textBuilder.Append("\n(未受倍率影响)");
             }
             var hitLabel = new Label(s_textBuilder.ToString());
             hitLabel.AddToClassList(k_ClassFormulaStep);
             hitCol.Add(hitLabel);
 
-            // 右列：守方闪避率（一行显示）
+            // 右列：守方闪避率 + 有效闪避公式
             var evasionCol = new VisualElement();
             evasionCol.AddToClassList(k_ClassAttrCol);
             evasionCol.AddToClassList(k_ClassAttrColDefender);
 
             s_textBuilder.Clear();
             s_textBuilder.Append(GetStepCircle(stepNum)).Append(" 闪避判定（守方）：\n");
-            s_textBuilder.Append("闪避").Append(t.EvasionRate * 100f).Append("%, 有效=");
-            s_textBuilder.Append(Mathf.Max(0f, record.EffectiveEvasion) * 100f).Append("%");
+            // 显示有效闪避公式：有效闪避 = 闪避 + 未命中
+            s_textBuilder.Append("有效闪避=守方闪避").Append(t.EvasionRate * 100f).Append("%");
+            s_textBuilder.Append("+(攻方未命中").Append(missRate * 100f).Append("%)=");
+            s_textBuilder.Append(Mathf.Max(0f, record.EffectiveEvasion) * 100f).Append("%\n");
+            // 显示判定结果
             if (record.IsEvaded)
             {
-                s_textBuilder.Append("\n⚠被闪避! 伤害=0");
+                s_textBuilder.Append("判定: Random<有效闪避 → ⚠被闪避! 伤害=0");
             }
             else if (record.EffectiveEvasion <= 0f)
             {
-                s_textBuilder.Append("\n✓必命中(有效≤0)");
+                s_textBuilder.Append("判定: 有效闪避≤0 → ✓必命中");
             }
             else
             {
-                s_textBuilder.Append("\n✓命中(闪避未触发)");
+                s_textBuilder.Append("判定: Random<有效闪避 → ✓命中");
             }
             var evasionLabel = new Label(s_textBuilder.ToString());
             evasionLabel.AddToClassList(k_ClassFormulaStep);
