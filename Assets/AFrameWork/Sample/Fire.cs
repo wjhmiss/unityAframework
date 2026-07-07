@@ -106,12 +106,19 @@ namespace AFrameWork.Sample
                 return;
             }
 
+            // 阵营关系判定：中立阵营(FactionID=100)仅伤害敌对方
+            ObjectStatsConfig myStats = GetObjectStats();
+            ObjectStatsConfig targetStats = target.GetObjectStats();
+            if (!CanDealDamageTo(targetStats))
+            {
+                return;
+            }
+
             // 立即造成首次伤害
             ApplyDamageToTarget(target);
 
             // 记录伤害时间（如果是持续伤害）
-            ObjectStatsConfig stats = GetObjectStats();
-            if (stats.IsContinuousDamage)
+            if (myStats.IsContinuousDamage)
             {
                 m_damageTimers[target] = Time.time;
             }
@@ -134,6 +141,13 @@ namespace AFrameWork.Sample
 
             // 使用 TryGetComponent 替代 GetComponent
             if (!other.TryGetComponent<ObjectBase>(out ObjectBase target) || target == this)
+            {
+                return;
+            }
+
+            // 阵营关系判定：友方不受持续伤害
+            ObjectStatsConfig targetStats = target.GetObjectStats();
+            if (!CanDealDamageTo(targetStats))
             {
                 return;
             }
@@ -191,6 +205,13 @@ namespace AFrameWork.Sample
         private void ApplyDamageToTarget(ObjectBase target)
         {
             if (target == null || target.IsDead())
+            {
+                return;
+            }
+
+            // 伤害功能未启用时跳过（与 Sword 保持一致）
+            ObjectStatsConfig myStats = GetObjectStats();
+            if (!myStats.CanDealDamage)
             {
                 return;
             }

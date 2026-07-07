@@ -73,7 +73,7 @@ namespace AFrameWork.GameUI
         private const int k_layoutWideMinWidth = 1200;
 
         /// <summary>面板检查新攻击记录的间隔（秒），避免每帧轮询</summary>
-        private const float k_updateInterval = 0.1f;
+        private const float k_updateInterval = 1f;
 
         // ══════════════════════════════════════════════════════════════════════════
         // 字段定义
