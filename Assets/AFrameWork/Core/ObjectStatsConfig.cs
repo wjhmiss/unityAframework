@@ -512,7 +512,7 @@ namespace AFrameWork.Core
         {
             return new ObjectStatsConfig
             {
-                Type = ObjectType.Projectile,
+                Type = ObjectType.Trap,
                 FactionID = 100,
                 MaxHealth = 1f,
                 CurrentHealth = 1f,
