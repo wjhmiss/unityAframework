@@ -330,7 +330,7 @@ namespace AFrameWork.Core
         [SerializeField]
         [Tooltip("命中率，范围：0-1")]
         [Range(0f, 1f)]
-        public float HitRate = 0f;
+        public float HitRate = 0.95f;
 
         // 攻击范围
         [SerializeField]
@@ -551,13 +551,15 @@ namespace AFrameWork.Core
                 MagicPenetration = 0.2f,            // 魔法穿透率（20%，无视部分魔防）
 
                 // 速度属性
-                CastSpeed = 2f,                     // 施法频率（2次/秒，即每0.5秒一次持续伤害）
+                CastSpeed = 0.5f,                     // 施法频率（2次/秒，即每0.5秒一次持续伤害）
 
                 // 伤害配置
                 DamageRadius = 5f,                  // 伤害范围（5米，同时作为触发器半径）
                 IsContinuousDamage = true,          // 启用持续伤害（OnTriggerStay按间隔触发）
                 DamageDuration = -1f,               // 持续时间（10秒后自动销毁）
-                CanDealDamage = true                // 启用伤害判定
+                CanDealDamage = true,                // 启用伤害判定    
+
+                HitRate = 0.95f,                    // 命中率（95%）
             };
         }
 
