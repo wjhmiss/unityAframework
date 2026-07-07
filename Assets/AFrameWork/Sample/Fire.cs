@@ -48,12 +48,12 @@ namespace AFrameWork.Sample
             base.SetupComponents();
 
             // 添加 Rigidbody（火球不受重力影响）
-            m_rigidbody = AddObjectComponent<Rigidbody>(rb =>
-            {
-                rb.mass = 1f;
-                rb.useGravity = false;
-                rb.constraints = RigidbodyConstraints.FreezeAll;
-            });
+            // m_rigidbody = AddObjectComponent<Rigidbody>(rb =>
+            // {
+            //     rb.mass = 1f;
+            //     rb.useGravity = false;
+            //     rb.constraints = RigidbodyConstraints.FreezeAll;
+            // });
 
             // 添加 SphereCollider 作为触发器（用于 OnTriggerEnter/Stay/Exit 检测）
             float damageRadius = ObjectStatsConfig.DamageRadius;
