@@ -1,17 +1,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 using AFrameWork.Core;
+using AFrameWork.Core.SmallBase;
 
 namespace AFrameWork.Sample
 {
     /// <summary>
-    /// 剑类，继承 ObjectBase，演示武器物体的实现。
+    /// 剑类，继承 WeaponBase（轻量武器基类，不继承 ObjectBase），演示武器物体的实现。
     /// 使用 BoxCollider 作为碰撞体，用于攻击检测。
     /// 初始化时从父级 ObjectBase 继承阵营/队伍/公会/PVP 信息，
     /// 碰撞时根据阵营关系判断是否可攻击并造成伤害。
     /// 支持 Fighter 传入 ObjectStatsConfigMultiplier 实现连击差异化伤害。
     /// </summary>
-    public class Sword : ObjectBase
+    public class Sword : WeaponBase
     {
         #region 常量
 
@@ -23,11 +24,6 @@ namespace AFrameWork.Sample
         #region 配置属性
 
         /// <summary>
-        /// 移动配置属性，武器通常不需要自动移动控制
-        /// </summary>
-        protected override MovementConfig MovementConfig => null;
-
-        /// <summary>
         /// 物体属性配置，包含剑的攻击属性
         /// 阵营/队伍/公会/PVP 信息在 Start 中从父级继承
         /// </summary>
@@ -37,11 +33,8 @@ namespace AFrameWork.Sample
 
         #region 字段
 
-        // 持有该武器的父级 ObjectBase（缓存引用，避免每次碰撞时向上查找）
-        private ObjectBase m_owner;
-
-        // 持有者的 ObjectStatsConfig（缓存，用于获取暴击属性）
-        private ObjectStatsConfig m_ownerStats;
+        // m_owner 和 m_ownerStats 已上移到 WeaponBase（protected），子类直接复用
+        // InheritOwnerFactionInfo 在基类中赋值，OnTriggerEnter 中直接读取基类字段
 
         // 当前挥剑已命中的目标集合，防止同一目标在一次挥剑中重复受伤
         private HashSet<int> m_hitTargetIds;
@@ -100,46 +93,6 @@ namespace AFrameWork.Sample
         {
             m_hitTargetIds = new HashSet<int>(k_maxHitTargetsPerSwing);
             InheritOwnerFactionInfo();
-        }
-
-        /// <summary>
-        /// 向上查找第一个拥有 ObjectBase 组件的父级，继承其阵营信息
-        /// 同时缓存持有者的 ObjectStatsConfig，用于暴击属性获取
-        /// </summary>
-        private void InheritOwnerFactionInfo()
-        {
-            m_owner = FindParentObjectBase();
-
-            if (m_owner == null || !m_owner.HasObjectStats())
-            {
-#if UNITY_EDITOR
-                // Debug.LogWarning("Sword: 未找到父级 ObjectBase，阵营信息未继承", this);
-#endif
-                return;
-            }
-
-            m_ownerStats = m_owner.GetObjectStats();
-            ObjectStatsConfig myStats = GetObjectStats();
-
-            // 继承父级的阵营关系判定字段（统一通过 InheritFactionFrom 处理）
-            myStats.InheritFactionFrom(m_ownerStats);
-        }
-
-        /// <summary>
-        /// 沿父级向上查找第一个具有 ObjectBase 基类的组件
-        /// </summary>
-        private ObjectBase FindParentObjectBase()
-        {
-            Transform current = transform.parent;
-            while (current != null)
-            {
-                if (current.TryGetComponent<ObjectBase>(out ObjectBase parentObj))
-                {
-                    return parentObj;
-                }
-                current = current.parent;
-            }
-            return null;
         }
 
         #endregion
@@ -232,21 +185,18 @@ namespace AFrameWork.Sample
             }
 
             // 阵营关系判定：能否对目标造成伤害
-            if (!myStats.CanDealDamageTo(targetStats))
+            if (!CanDealDamageTo(targetStats))
             {
                 return;
             }
 
             // 累加武器 + 持有者属性 → 计算伤害（不扣血）
-            // CalculateAttack 是唯一伤害计算入口，与 TakeDamage 分离避免重复扣血
-            float damage = ObjectStatsConfig.CalculateAttack(
-                m_attackMultiplier, targetStats, myStats, m_ownerStats);
+            // CalculateDamage 内部委托 ObjectStatsConfig.CalculateAttack，与 TakeDamage 分离避免重复扣血
+            float damage = CalculateDamage(targetStats, m_attackMultiplier);
 
-            // 记录 ObjectBase 活引用供 UI 实时读取生命值/魔法值（攻击方=this + m_owner）
-            ObjectStatsConfig.SetLastAttackRefs(target, this, m_owner);
-
-            // 经 ObjectBase.TakeDamage 应用：保留无敌检查（翻滚免疫）/OnDamaged 回调/OnDeath 处理
-            target.TakeDamage(damage);
+            // 经 ApplyDamageTo 应用：target.TakeDamage + SetLastAttackRefs
+            // 保留无敌检查（翻滚免疫）/OnDamaged 回调/OnDeath 处理
+            ApplyDamageTo(target, damage);
 
             m_hitTargetIds.Add(targetInstanceId);
 
@@ -256,63 +206,38 @@ namespace AFrameWork.Sample
         }
 
         #endregion
-
-        #region 物体属性回调方法
-
-        // 注意：所有回调中的 Debug.Log 均包裹在 #if UNITY_EDITOR 中
-        // MMO 场景下战斗频繁，字符串插值会产生 GC 压力，生产构建中需要完全剥离
-
-        /// <summary>
-        /// 受到伤害时的回调
-        /// </summary>
-        protected override void OnDamaged(float damage)
-        {
-#if UNITY_EDITOR
-            // Debug.Log($"剑受到 {damage} 点伤害！");
-#endif
-        }
-
-        /// <summary>
-        /// 物体死亡时的回调
-        /// </summary>
-        protected override void OnDeath()
-        {
-#if UNITY_EDITOR
-            // Debug.Log("剑被破坏！");
-#endif
-        }
-
-        #endregion
     }
 
     /// <summary>
     /// Sword 使用说明：
     /// ============================================================
-    /// 剑类，继承 ObjectBase，演示武器物体的实现。
+    /// 剑类，继承 WeaponBase（轻量武器基类，不继承 ObjectBase），演示武器物体的实现。
     /// 包含：动态组件创建、属性配置、BoxCollider 设置、阵营继承、碰撞伤害。
     /// 作为 Fighter 武器子对象，由 Fighter 的攻击动画事件驱动 BeginSwing/EndSwing。
     ///
     /// ════════════════════════════════════════════════════════════
-    /// 【与 ObjectBase 的关系】
+    /// 【与 WeaponBase 的关系】
     /// ════════════════════════════════════════════════════════════
-    ///   - Sword 继承 ObjectBase，复用父类的属性系统、组件管理、阵营判定
-    ///   - 未重写 MovementConfig（返回 null），武器不使用移动系统
-    ///   - 未启用动画系统、帧事件系统（武器本身不播放动画）
-    ///   - 重写 OnDamaged/OnDeath 回调（武器可被破坏，但当前仅日志输出）
-    ///   - 父类自动处理：组件管理、属性系统、阵营判定（继承后）
+    ///   - Sword 继承 WeaponBase，复用基类的属性系统、组件管理、阵营判定
+    ///   - WeaponBase 不提供移动系统（武器不需要移动）
+    ///   - WeaponBase 不提供动画系统、帧事件系统（武器本身不播放动画）
+    ///   - WeaponBase 不提供 OnDamaged/OnDeath 回调（武器不可被破坏）
+    ///   - 基类自动处理：组件管理、属性系统、阵营判定（InheritOwnerFactionInfo 后）
+    ///   - 设计原因：ObjectBase 含 PlayableGraph/动画槽位/Addressables 字典等 ~400+ 字节
+    ///              与武器无关的开销，WeaponBase 直接继承 MonoBehaviour 避免这些浪费
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【字段详解】
     /// ════════════════════════════════════════════════════════════
-    ///   m_owner : ObjectBase
+    ///   m_owner : ObjectBase（已上移到 WeaponBase，protected）
     ///     - 持有该武器的父级 ObjectBase（缓存引用，避免每次碰撞时向上查找）
-    ///     - 在 Start → InheritOwnerFactionInfo 中赋值
+    ///     - 在 Start → InheritOwnerFactionInfo 中由基类赋值
     ///     - 用途：OnTriggerEnter 中跳过对自身的伤害（target == m_owner 时返回）
     ///     - 用途：作为暴击属性来源（m_ownerStats.CriticalRate）
     ///
-    ///   m_ownerStats : ObjectStatsConfig
+    ///   m_ownerStats : ObjectStatsConfig（已上移到 WeaponBase，protected）
     ///     - 持有者的 ObjectStatsConfig（缓存，用于获取暴击属性）
-    ///     - 在 InheritOwnerFactionInfo 中赋值（m_owner.GetObjectStats()）
+    ///     - 在 InheritOwnerFactionInfo 中由基类赋值（m_owner.GetObjectStats()）
     ///     - 用途：OnTriggerEnter 中计算暴击时使用持有者的 CriticalRate 和 CriticalDamageMultiplier
     ///     - 设计原因：武器自身属性不含暴击，暴击由持有者决定
     ///
@@ -361,13 +286,13 @@ namespace AFrameWork.Sample
     ///   - 使用 AddBoxCollider(Bounds, Vector3, Vector3) 一站式添加并配置
     ///
     ///   注意：BoxCollider 的 IsTrigger 必须为 true，否则会与目标发生物理碰撞
-    ///        父类 AddBoxCollider 默认设置 isTrigger = true
+    ///        Sword 通过 AddBoxCollider 的 extraConfig 回调设置 isTrigger = true
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【初始化流程】
     /// ════════════════════════════════════════════════════════════
-    ///   1. Awake → SetupComponents()：
-    ///      - base.SetupComponents()：父类添加默认组件
+    ///   1. Awake → SetupComponents()（WeaponBase.Awake 调用）：
+    ///      - base.SetupComponents()：WeaponBase 基类初始化（当前为空实现）
     ///      - 添加 BoxCollider（自动计算包围盒，sizeMultiplier=(0.3, 1.0, 0.15)）
     ///   2. Start → InheritOwnerFactionInfo()：
     ///      - 向上查找第一个父级 ObjectBase（FindParentObjectBase）
@@ -498,14 +423,17 @@ namespace AFrameWork.Sample
     ///   - OnTriggerEnter 中使用 target.GetInstanceID() 作为 HashSet 键
     ///     InstanceID 是 int 类型，比 GameObject 引用比较更快
     ///   - Debug.Log 包裹 #if UNITY_EDITOR，生产构建中完全剥离
-    ///   - 父类自动处理：CalculateObjectBounds 零分配、MovementConfig 缓存（null）
+    ///   - 基类 WeaponBase 自动处理：CalculateObjectBounds 零分配（静态缓冲区）
+    ///   - CalculateDamage 使用静态 s_twoAttackerBuffer 避免 params 数组分配
+    ///   - 相比继承 ObjectBase：节省 PlayableGraph/动画槽位/Addressables 字典等
+    ///     ~400+ 字节字段开销，且无 Update/FixedUpdate 的 native↔managed 边界开销
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【扩展建议】
     /// ════════════════════════════════════════════════════════════
     ///   1. 武器耐久度系统：
-    ///      - 在 OnDamaged 中减少耐久度，耐久度为 0 时触发 OnDeath
-    ///      - OnDeath 中通知持有者（m_owner）武器已损坏
+    ///      - 在 OnTriggerEnter 命中后减少耐久度（WeaponBase 不提供 OnDamaged 回调）
+    ///      - 耐久度为 0 时通过 m_owner 通知持有者武器已损坏
     ///
     ///   2. 元素附魔：
     ///      - 添加 Element 字段（Fire/Ice/Lightning 等）

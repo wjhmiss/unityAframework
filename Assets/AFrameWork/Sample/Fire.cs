@@ -1,17 +1,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 using AFrameWork.Core;
+using AFrameWork.Core.SmallBase;
 
 namespace AFrameWork.Sample
 {
     /// <summary>
-    /// 火球类，实现范围伤害检测系统
+    /// 火球类，继承 WeaponBase（轻量武器基类，不继承 ObjectBase），实现范围伤害检测系统
     /// 当继承 ObjectBase 的物体进入范围时，自动造成伤害
     /// 使用触发器检测 + 时间缓存机制实现高效伤害计算
     ///
     /// 性能优化设计详见类末尾的「Fire 使用说明」文档
     /// </summary>
-    public class Fire : ObjectBase
+    public class Fire : WeaponBase
     {
         #region 配置属性
 
@@ -78,19 +79,16 @@ namespace AFrameWork.Sample
             m_creationTime = Time.time;
         }
 
-        protected override void Update()
+        private void Update()
         {
-            base.Update();
-
             // 检查火球持续时间
             CheckDuration();
         }
 
-        protected override void OnDestroy()
+        private void OnDestroy()
         {
             // 清理伤害计时器
             m_damageTimers.Clear();
-            base.OnDestroy();
         }
 
         #endregion
@@ -188,7 +186,7 @@ namespace AFrameWork.Sample
 
         /// <summary>
         /// 对目标应用伤害
-        /// CalculateAttack 计算伤害（不扣血），target.TakeDamage 应用（保留无敌/回调/死亡）
+        /// CalculateDamage 计算伤害（不扣血），ApplyDamageTo 应用（保留无敌/回调/死亡）
         /// </summary>
         private void ApplyDamageToTarget(ObjectBase target)
         {
@@ -197,13 +195,12 @@ namespace AFrameWork.Sample
                 return;
             }
 
-            ObjectStatsConfig attackerStats = GetObjectStats();
             ObjectStatsConfig targetStats = target.GetObjectStats();
-            float damage = ObjectStatsConfig.CalculateAttack(
-                new ObjectStatsConfigMultiplier(), targetStats, attackerStats);
-            // 记录 ObjectBase 活引用供 UI 实时读取生命值/魔法值（攻击方=this）
-            ObjectStatsConfig.SetLastAttackRefs(target, this);
-            target.TakeDamage(damage);
+            // Fire 无 owner，CalculateDamage 内部只用 m_objectStats（武器自身属性）
+            float damage = CalculateDamage(targetStats, new ObjectStatsConfigMultiplier());
+            // ApplyDamageTo 内部调用 target.TakeDamage + SetLastAttackRefs(target, null, m_owner)
+            // Fire 的 m_owner 为 null，UI 不显示攻击方卡片，只显示目标
+            ApplyDamageTo(target, damage);
 
 #if UNITY_EDITOR
             // Debug.Log($"火球对 {target.name} 造成魔法伤害");
@@ -263,7 +260,7 @@ namespace AFrameWork.Sample
             {
                 stats.SetDamageRadius(radius);
 
-                SphereCollider sphereCollider = GetObjectComponent<SphereCollider>();
+                SphereCollider sphereCollider = GetComponent<SphereCollider>();
                 if (sphereCollider != null)
                 {
                     sphereCollider.radius = radius;
@@ -297,19 +294,21 @@ namespace AFrameWork.Sample
     /// <summary>
     /// Fire 使用说明：
     /// ============================================================
-    /// 火球类，继承 ObjectBase，实现范围伤害检测系统。
+    /// 火球类，继承 WeaponBase（轻量武器基类，不继承 ObjectBase），实现范围伤害检测系统。
     /// 使用 SphereCollider 触发器检测进入范围内的物体，按间隔造成持续伤害。
     /// 典型应用场景：法师的范围火焰技能、燃烧地面、陷阱区域、BOSS 的 AOE 技能。
     ///
     /// ════════════════════════════════════════════════════════════
-    /// 【与 ObjectBase 的关系】
+    /// 【与 WeaponBase 的关系】
     /// ════════════════════════════════════════════════════════════
-    ///   - Fire 继承 ObjectBase，复用父类的属性系统、组件管理、生命周期管理
-    ///   - 未重写 MovementConfig（默认 null），表示火球不使用移动系统
-    ///     实际场景中可通过外部脚本（如 SkillLauncher）设置火球位置或使用 Rigidbody 移动
+    ///   - Fire 继承 WeaponBase，复用基类的属性系统、组件管理
+    ///   - WeaponBase 不提供移动系统（火球位置由外部脚本或 Rigidbody 控制）
+    ///   - WeaponBase 不提供 Update/FixedUpdate/OnDestroy 默认实现，Fire 自行实现
     ///   - 伤害计算委托给 ObjectStatsConfig.CalculateAttack（含闪避、暴击、防御、穿透公式）
-    ///   - 通过 GetObjectStats() 获取自身属性配置，避免每次属性访问产生新实例
-    ///   - 父类自动处理：Awake 缓存 MovementConfig（null）、CalculateObjectBounds 零分配
+    ///   - 通过 GetObjectStats() 获取自身属性配置（基类 Awake 中克隆）
+    ///   - 基类自动处理：CalculateObjectBounds 零分配（静态缓冲区）
+    ///   - 设计原因：ObjectBase 含 PlayableGraph/动画槽位/Addressables 字典等 ~400+ 字节
+    ///              与火球无关的开销，WeaponBase 直接继承 MonoBehaviour 避免这些浪费
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【字段详解】
@@ -413,26 +412,26 @@ namespace AFrameWork.Sample
     /// ════════════════════════════════════════════════════════════
     /// 【生命周期方法】
     /// ════════════════════════════════════════════════════════════
-    ///   Awake（重写）：
-    ///     1. base.Awake() —— 父类初始化（缓存 MovementConfig、计算 Bounds 等）
+    ///   Awake（重写 WeaponBase.Awake）：
+    ///     1. base.Awake() —— WeaponBase 初始化（SetupComponents + SetupObjectStats）
     ///     2. m_creationTime = Time.time —— 记录创建时间用于持续时间判定
     ///
-    ///   Update（重写）：
-    ///     1. base.Update() —— 父类更新（移动、动画、帧事件等，火球未启用这些系统）
-    ///     2. CheckDuration() —— 检查持续时间是否到期
+    ///   Update（private，WeaponBase 不提供 Update）：
+    ///     1. CheckDuration() —— 检查持续时间是否到期
+    ///     （WeaponBase 无 Update/FixedUpdate，火球自行实现需要的帧逻辑）
     ///
-    ///   OnDestroy（重写）：
+    ///   OnDestroy（private，WeaponBase 不提供 OnDestroy）：
     ///     1. m_damageTimers.Clear() —— 清空计时器，防止引用泄漏
-    ///     2. base.OnDestroy() —— 父类清理（释放 Playable 资源、Addressables 句柄等）
+    ///     （WeaponBase 无 OnDestroy，火球自行清理；无 Playable/Addressables 资源需释放）
     ///
-    ///   注意：火球未重写 FixedUpdate（父类默认处理移动，但火球 MovementConfig = null
-    ///        所以父类 FixedUpdate 会跳过移动逻辑）
+    ///   注意：WeaponBase 不提供 FixedUpdate（武器不需要物理移动）
+    ///        火球的 Rigidbody 仅用于触发器检测（FreezeAll 约束），不参与物理模拟
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【初始化流程】
     /// ════════════════════════════════════════════════════════════
-    ///   1. Awake → SetupComponents()：
-    ///      - base.SetupComponents()：父类添加默认组件
+    ///   1. Awake → SetupComponents()（WeaponBase.Awake 调用）：
+    ///      - base.SetupComponents()：WeaponBase 基类初始化（当前为空实现）
     ///      - 添加 Rigidbody（mass=1, useGravity=false, FreezeAll 约束）
     ///        火球不受重力影响，位置由外部控制或保持原地
     ///      - 添加 SphereCollider（isTrigger=true, radius=DamageRadius, center=zero）
@@ -477,10 +476,12 @@ namespace AFrameWork.Sample
     ///      - 生产构建中完全剥离，避免字符串插值（$"..."）的 GC 分配
     ///      - MMO 场景下火球数量多、触发器回调频繁，此项优化收益显著
     ///
-    ///   4. 父类 ObjectBase 自动处理的优化（子类无感知）：
+    ///   4. 基类 WeaponBase 自动处理的优化（子类无感知）：
     ///      - CalculateObjectBounds 使用静态缓冲区零分配
-    ///      - MovementConfig 在 Awake 缓存（火球未使用移动，但仍会缓存 null）
-    ///      - GetObjectStats() 返回缓存引用，避免每次访问属性时 new ObjectStatsConfig
+    ///      - GetObjectStats() 返回 Awake 中克隆的缓存引用，避免每次访问属性时 new
+    ///      - CalculateDamage 使用静态 s_twoAttackerBuffer 避免 params 数组分配
+    ///      - 相比继承 ObjectBase：无 PlayableGraph/动画槽位/Addressables 字典开销
+    ///        且无 Update/FixedUpdate 的 native↔managed 边界开销
     ///
     /// ════════════════════════════════════════════════════════════
     /// 【公共方法】
@@ -502,12 +503,13 @@ namespace AFrameWork.Sample
     /// 【扩展建议】
     /// ════════════════════════════════════════════════════════════
     ///   1. 添加视觉效果：
-    ///      - 重写 OnDamaged/OnDeath 播放爆炸特效
-    ///      - 在 SetupComponents 中加载 VFX Graph 通过 Addressables
+    ///      - 在 DestroyFire 中播放爆炸特效（WeaponBase 不提供 OnDeath 回调）
+    ///      - 在 SetupComponents 中加载 VFX Graph（自行管理资源生命周期）
     ///
     ///   2. 添加移动逻辑：
-    ///      - 重写 MovementConfig 返回非 null 配置实现飞行火球
-    ///      - 或在 Update 中通过 Rigidbody.velocity 控制飞行方向
+    ///      - 在 Update 中通过 Rigidbody.velocity 控制飞行方向
+    ///      - 或在外部脚本（如 SkillLauncher）中驱动 transform.position
+    ///      - 注意：WeaponBase 不提供 MovementConfig 系统
     ///
     ///   3. 添加伤害类型变化：
     ///      - 运行时修改 PhysicalAttack/MagicAttack/TrueDamage 实现伤害类型切换
