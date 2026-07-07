@@ -381,6 +381,11 @@ namespace AFrameWork.Core
         [Tooltip("是否可以造成伤害（用于控制物体是否启用伤害功能）")]
         public bool CanDealDamage = false;
 
+        // 减速倍率（0.3 = 降至原速度30%，0 = 无减速效果）
+        [SerializeField]
+        [Tooltip("减速倍率（0.3=降至原速度30%，0=无减速效果）")]
+        public float SlowFactor = 0f;
+
         #endregion
 
         /// <summary>
@@ -433,6 +438,7 @@ namespace AFrameWork.Core
             target.IsContinuousDamage = IsContinuousDamage;
             target.DamageDuration = DamageDuration;
             target.CanDealDamage = CanDealDamage;
+            target.SlowFactor = SlowFactor;
         }
 
         /// <summary>
@@ -556,7 +562,7 @@ namespace AFrameWork.Core
                 // 伤害配置
                 DamageRadius = 5f,                  // 伤害范围（5米，同时作为触发器半径）
                 IsContinuousDamage = true,          // 启用持续伤害（OnTriggerStay按间隔触发）
-                DamageDuration = -1f,               // 持续时间（10秒后自动销毁）
+                DamageDuration = 10f,               // 持续时间（10秒后自动销毁）
                 CanDealDamage = true,                // 启用伤害判定    
 
                 HitRate = 0.95f,                    // 命中率（95%）
@@ -615,6 +621,40 @@ namespace AFrameWork.Core
 
                 // 成长属性
                 Level = 1                           // 等级
+            };
+        }
+
+        /// <summary>
+        /// 冰雹（HailStorm）属性配置
+        /// </summary>
+        public static ObjectStatsConfig CreateHailStorm()
+        {
+            return new ObjectStatsConfig
+            {
+                // 身份/阵营
+                Type = ObjectType.Trap,             // 陷阱类型
+                FactionID = 100,                    // 中立阵营（可伤害所有非中立阵营）
+
+                // 生命值
+                MaxHealth = 1f,                     // 最大生命值（冰雹一击即毁）
+                CurrentHealth = 1f,                 // 当前生命值
+
+                // 攻击属性
+                PhysicalAttack = 11f,               // 物理攻击力（冰雹主要伤害来源：物理打击）
+                MagicAttack = 1f,                   // 魔法攻击力（附加冰霜魔法伤害）
+                ArmorPenetration = 0.15f,           // 护甲穿透率（15%，冰雹冲击力部分无视护甲）
+
+                // 速度属性
+                CastSpeed = 0.5f,                   // 施法频率（1.5次/秒，即每0.67秒一次持续伤害）
+
+                // 伤害配置
+                DamageRadius = 6f,                  // 伤害范围（6米，冰雹覆盖范围比火焰略大）
+                IsContinuousDamage = true,           // 启用持续伤害（OnTriggerStay按间隔触发）
+                DamageDuration = -1f,                // 持续时间（8秒后自动销毁）
+                CanDealDamage = true,               // 启用伤害判定
+
+                // 减速配置
+                SlowFactor = 0.4f                   // 减速倍率（降至原速度40%，即减60%移速）
             };
         }
 
@@ -1120,7 +1160,10 @@ namespace AFrameWork.Core
                 DamageRadius = DamageRadius + (other?.DamageRadius ?? 0f),
                 IsContinuousDamage = IsContinuousDamage || (other?.IsContinuousDamage ?? false),
                 DamageDuration = DamageDuration + (other?.DamageDuration ?? 0f),
-                CanDealDamage = CanDealDamage || (other?.CanDealDamage ?? false)
+                CanDealDamage = CanDealDamage || (other?.CanDealDamage ?? false),
+
+                // 减速配置 — 取较大值（减速效果不叠加，取最强）
+                SlowFactor = Mathf.Max(SlowFactor, other?.SlowFactor ?? 0f)
             };
         }
 
@@ -1221,6 +1264,30 @@ namespace AFrameWork.Core
         public void SetDamageDuration(float duration)
         {
             DamageDuration = duration;
+        }
+
+        /// <summary>
+        /// 应用减速效果：将 MoveSpeed 降低到原速度的 slowFactor 比例。
+        /// slowFactor=0.3 表示降至原速度30%（即减70%），0 表示不减速。
+        /// </summary>
+        /// <param name="slowFactor">减速后的速度保留比例（0~1）</param>
+        public void ApplySlow(float slowFactor)
+        {
+            if (slowFactor <= 0f || MoveSpeed <= 0f)
+            {
+                return;
+            }
+
+            MoveSpeed *= slowFactor;
+        }
+
+        /// <summary>
+        /// 恢复原始移动速度（离开减速区域或减速结束时调用）
+        /// </summary>
+        /// <param name="originalSpeed">减速前的原始速度值</param>
+        public void RestoreSpeed(float originalSpeed)
+        {
+            MoveSpeed = originalSpeed;
         }
 
         #endregion
