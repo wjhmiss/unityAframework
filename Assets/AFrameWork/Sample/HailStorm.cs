@@ -87,8 +87,8 @@ namespace AFrameWork.Sample
         }
 
         /// <summary>
-        /// 旋转 SwirlSnow 发射点绕 HailStorm 的 Y 轴，使粒子从不同角度发射形成螺旋流。
-        /// simulationSpace=World，已有粒子不受 transform 旋转影响，仅新粒子从旋转后的位置发射。
+        /// 旋转 SwirlSnow 的 transform 绕 Y 轴，使所有粒子在局部空间中跟随旋转，形成螺旋下落效果。
+        /// simulationSpace=Local，已发射的粒子也会随 transform 旋转，肉眼可见的螺旋轨迹。
         /// </summary>
         private void RotateSwirlEmission()
         {
@@ -271,9 +271,9 @@ namespace AFrameWork.Sample
         private const float k_swirlSnowHeightMultiplier = 1.5f;
 
         // 雪花旋转速度范围（绕 Y 轴，单位：unit/sec）
-        // DamageRadius=6 时，周长=2π×6≈37.7，轨道速度8~12，下落约2.4秒内可旋转1.5~2.3圈
-        private const float k_swirlSnowOrbitalSpeedMin = 8f;
-        private const float k_swirlSnowOrbitalSpeedMax = 12f;
+        // DamageRadius=6 时，周长=2π×6≈37.7，轨道速度20~30，下落约1.9秒内边缘粒子可旋转1.0~1.5圈
+        private const float k_swirlSnowOrbitalSpeedMin = 20f;
+        private const float k_swirlSnowOrbitalSpeedMax = 30f;
 
         // 雪花径向速度范围（向中心汇聚，负值=向内）—— 较小，保持螺旋半径避免快速塌缩到中心
         private const float k_swirlSnowRadialSpeedMin = -0.2f;
@@ -377,7 +377,7 @@ namespace AFrameWork.Sample
             main.startColor = Color.white; // 纯白小球
             main.gravityModifier = k_swirlSnowGravityMultiplier; // 较小重力，下落慢，螺旋轨迹清晰
             main.maxParticles = 2400;
-            main.simulationSpace = ParticleSystemSimulationSpace.World; // 世界空间模拟，旋转中心固定
+            main.simulationSpace = ParticleSystemSimulationSpace.Local; // 局部空间模拟，旋转 transform 时所有粒子跟随旋转
 
             // 形状：圆形发射器，半径 = DamageRadius，圆面水平朝上（XZ 平面）
             // shape.position 偏移到高空生成粒子，但粒子系统仍在 HailStorm 中心（旋转中心不变）
@@ -393,13 +393,10 @@ namespace AFrameWork.Sample
             var emission = ps.emission;
             emission.rateOverTime = k_swirlSnowEmissionRate;
 
-            // 龙卷风效果：旋转 + 向中心汇聚（辅助发射点旋转的螺旋效果）
+            // 龙卷风效果：径向向中心汇聚（旋转由 RotateSwirlEmission 旋转 transform 实现）
             var velocityOverLifetime = ps.velocityOverLifetime;
             velocityOverLifetime.enabled = true;
             velocityOverLifetime.space = ParticleSystemSimulationSpace.Local;
-            // 绕 Y 轴旋转（螺旋）
-            velocityOverLifetime.orbitalY = new ParticleSystem.MinMaxCurve(
-                k_swirlSnowOrbitalSpeedMin, k_swirlSnowOrbitalSpeedMax);
             // 径向速度为负值，向中心汇聚（龙卷风吸力）
             velocityOverLifetime.radial = new ParticleSystem.MinMaxCurve(
                 k_swirlSnowRadialSpeedMin, k_swirlSnowRadialSpeedMax);
