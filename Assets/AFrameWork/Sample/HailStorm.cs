@@ -294,14 +294,26 @@ namespace AFrameWork.Sample
         // 雪花发射速率（每秒粒子数）
         private const float k_swirlSnowEmissionRate = 1200f;
 
+        // 雪地覆盖层透明度
+        private const float k_snowGroundAlpha = 0.85f;
+
         // URP 粒子材质（静态缓存，避免每次创建 HailStorm 都生成新材质）
         private static Material s_snowMaterial;
 
         // 内置球体 mesh（静态缓存，用于渲染小球状雪花）
         private static Mesh s_sphereMesh;
 
+        // 地面弹跳用的圆形 mesh（所有法线朝 +Y，用于 Mesh 粒子发射器）
+        private static Mesh s_circleMesh;
+
+        // 雪地覆盖层纹理（静态缓存，径向渐变白色圆盘）
+        private static Texture2D s_snowGroundTexture;
+
+        // 雪地覆盖层材质（静态缓存）
+        private static Material s_snowGroundMaterial;
+
         // 地面飞溅发射速率（每秒粒子数）
-        private const float k_groundSplashEmissionRate = 80f;
+        private const float k_groundSplashEmissionRate = 500f;
 
         /// <summary>
         /// 获取或创建 URP 粒子材质（白色，静态缓存）
@@ -335,6 +347,103 @@ namespace AFrameWork.Sample
         }
 
         /// <summary>
+        /// 获取或创建地面弹跳用的圆形 mesh
+        /// 顶点在 XZ 平面上均匀分布在整个圆形面积内，所有法线朝 +Y，用于 Mesh 粒子发射器使粒子向上发射
+        /// </summary>
+        private static Mesh GetOrCreateCircleMesh(float radius)
+        {
+            if (s_circleMesh == null)
+            {
+                s_circleMesh = new Mesh();
+                // 在圆形面积内均匀生成顶点（极坐标网格）
+                var vertList = new System.Collections.Generic.List<Vector3>();
+                int rings = 6; // 同心环数
+                int baseSegments = 8;
+                // 中心顶点
+                vertList.Add(Vector3.zero);
+                for (int r = 1; r <= rings; r++)
+                {
+                    float rNorm = (float)r / rings;
+                    int segs = baseSegments * r; // 越外层顶点越多
+                    for (int s = 0; s < segs; s++)
+                    {
+                        float angle = (float)s / segs * Mathf.PI * 2f;
+                        vertList.Add(new Vector3(
+                            Mathf.Cos(angle) * radius * rNorm,
+                            0f,
+                            Mathf.Sin(angle) * radius * rNorm));
+                    }
+                }
+                s_circleMesh.vertices = vertList.ToArray();
+                // 每个顶点的法线略微倾斜朝向不同方向（以 +Y 为主，混合随机水平分量）
+                // Mesh shape 沿法线方向发射粒子，倾斜法线使粒子向各个不同方向弹起
+                Vector3[] normals = new Vector3[vertList.Count];
+                // 用固定种子保证每次生成的法线分布一致
+                UnityEngine.Random.State prevState = UnityEngine.Random.state;
+                UnityEngine.Random.InitState(42);
+                for (int i = 0; i < normals.Length; i++)
+                {
+                    float nx = UnityEngine.Random.Range(-0.5f, 0.5f);
+                    float nz = UnityEngine.Random.Range(-0.5f, 0.5f);
+                    normals[i] = new Vector3(nx, 1f, nz).normalized;
+                }
+                UnityEngine.Random.state = prevState;
+                s_circleMesh.normals = normals;
+            }
+            return s_circleMesh;
+        }
+        private static Texture2D GetOrCreateSnowGroundTexture()
+        {
+            if (s_snowGroundTexture == null)
+            {
+                int size = 256;
+                s_snowGroundTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                s_snowGroundTexture.filterMode = FilterMode.Bilinear;
+                float center = size * 0.5f;
+                float maxDist = center;
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        float dist = Mathf.Sqrt((x - center) * (x - center) + (y - center) * (y - center));
+                        float t = Mathf.Clamp01(dist / maxDist);
+                        // 渐变：中心不透明，边缘透明；保留更大的不透明区域使圆盘更明显
+                        float alpha = 1f - t * t;
+                        s_snowGroundTexture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha * k_snowGroundAlpha));
+                    }
+                }
+                s_snowGroundTexture.Apply();
+            }
+            return s_snowGroundTexture;
+        }
+
+        /// <summary>
+        /// 获取或创建雪地覆盖层材质（URP Particles/Unlit，支持透明渐变纹理）
+        /// </summary>
+        private static Material GetOrCreateSnowGroundMaterial()
+        {
+            if (s_snowGroundMaterial == null)
+            {
+                Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+                if (shader != null)
+                {
+                    s_snowGroundMaterial = new Material(shader);
+                    // URP Particles/Unlit: _BaseColor 与 _BaseMap 相乘
+                    s_snowGroundMaterial.SetColor("_BaseColor", Color.white);
+                    Texture2D tex = GetOrCreateSnowGroundTexture();
+                    s_snowGroundMaterial.SetTexture("_BaseMap", tex);
+                    // 确保使用透明混合
+                    s_snowGroundMaterial.SetFloat("_Surface", 1f); // Transparent
+                    s_snowGroundMaterial.SetFloat("_Blend", 0f); // Alpha blending
+                    s_snowGroundMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    s_snowGroundMaterial.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+                    s_snowGroundMaterial.renderQueue = 3000; // Transparent queue
+                }
+            }
+            return s_snowGroundMaterial;
+        }
+
+        /// <summary>
         /// 创建暴雪特效：旋转下落雪花 + 地面飞溅
         /// VFX 作为子对象，随 HailStorm GameObject 自动销毁
         /// </summary>
@@ -346,6 +455,7 @@ namespace AFrameWork.Sample
 
             CreateSwirlSnowVfx(m_blizzardVfxRoot.transform, radius);
             CreateGroundSplashVfx(m_blizzardVfxRoot.transform, radius);
+            CreateSnowGround(m_blizzardVfxRoot.transform, radius);
         }
 
         /// <summary>
@@ -440,14 +550,14 @@ namespace AFrameWork.Sample
 
         /// <summary>
         /// 创建地面飞溅粒子系统
-        /// 粒子从地面圆形区域向上飞溅，模拟雨滴落地效果，透明度快速衰减
+        /// 粒子从地面圆形区域向上飞溅后受重力落回，模拟雪花落地弹跳效果
         /// </summary>
         private void CreateGroundSplashVfx(Transform parent, float radius)
         {
             GameObject splashObj = new GameObject("GroundSplash");
             splashObj.transform.SetParent(parent, false);
-            // 飞溅位置：HailStorm 中心（地面高度）
-            splashObj.transform.localPosition = Vector3.zero;
+            // 放置在世界 y=0 地面上（BlizzardVFX 是 HailStorm 子对象，需要偏移到地面高度）
+            splashObj.transform.position = new Vector3(transform.position.x, 0.01f, transform.position.z);
 
             ParticleSystem ps = splashObj.AddComponent<ParticleSystem>();
             m_groundSplashPs = ps;
@@ -456,20 +566,21 @@ namespace AFrameWork.Sample
             var main = ps.main;
             main.duration = 5f;
             main.loop = true;
-            main.startLifetime = 0.4f;      // 短生命周期，模拟快速飞溅消失
-            main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3f); // 随机向上速度
-            main.startSize = 0.1f;
-            main.startColor = new Color(0.8f, 0.9f, 1f, 0.8f); // 淡蓝色半透明
-            main.gravityModifier = 5f;      // 强重力，让飞溅粒子快速落回
-            main.maxParticles = 300;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.5f); // 短生命周期，弹跳弧线
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1f, 2.5f); // 向上弹跳速度（Hemisphere 默认沿 +Y 发射）
+            main.startSize = new ParticleSystem.MinMaxCurve(0.03f, 0.08f); // 比雪花略大，弹跳可见
+            main.startColor = Color.white; // 纯白，与雪花一致
+            main.gravityModifier = 0.5f;  // 低重力，弹跳弧线自然，下落不穿透太多
+            main.maxParticles = 1500;
+            // Local 空间：Hemisphere 的 startSpeed 沿 +Y 发射生效；BlizzardVFX 不旋转所以 local Y = world Y
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;
 
-            // 形状：圆形发射器，半径 = DamageRadius，发射方向向上
+            // 形状：Mesh 发射器，使用圆形 mesh（法线略倾斜朝各方向，粒子向不同方向弹起）
             var shape = ps.shape;
             shape.enabled = true;
-            shape.shapeType = ParticleSystemShapeType.Circle;
-            shape.radius = radius;
-            shape.radiusThickness = 1f;
-            shape.rotation = new Vector3(-90f, 0f, 0f); // 圆面朝上，粒子向上发射
+            shape.shapeType = ParticleSystemShapeType.Mesh;
+            shape.mesh = GetOrCreateCircleMesh(radius);
+            shape.meshShapeType = 0; // Vertex
 
             // 发射速率
             var emission = ps.emission;
@@ -492,7 +603,69 @@ namespace AFrameWork.Sample
                 });
             colorOverLifetime.color = new ParticleSystem.MinMaxGradient(gradient);
 
+            // 渲染：与雪花一致的小球状体
+            ParticleSystemRenderer renderer = ps.GetComponent<ParticleSystemRenderer>();
+            Mesh sphereMesh = GetSphereMesh();
+            if (sphereMesh != null)
+            {
+                renderer.renderMode = ParticleSystemRenderMode.Mesh;
+                renderer.mesh = sphereMesh;
+            }
+            Material snowMat = GetOrCreateSnowMaterial();
+            if (snowMat != null)
+            {
+                renderer.material = snowMat;
+            }
+
             ps.Play();
+        }
+
+        /// <summary>
+        /// 创建雪地覆盖层：地面上的白色圆盘，模拟积雪效果
+        /// 使用径向渐变纹理（中心不透明边缘透明），平铺在地面上
+        /// </summary>
+        private void CreateSnowGround(Transform parent, float radius)
+        {
+            GameObject snowGround = new GameObject("SnowGround");
+            snowGround.transform.SetParent(parent, false);
+            // 放置在世界 y=0 地面上，稍微抬高避免与地面 Z-fighting
+            snowGround.transform.position = new Vector3(transform.position.x, 0.05f, transform.position.z);
+            // mesh 顶点已在 XZ 平面（y=0），无需旋转
+            snowGround.transform.localRotation = Quaternion.identity;
+            // 缩放到 2*radius 覆盖整个伤害范围
+            snowGround.transform.localScale = new Vector3(radius * 2f, 1f, radius * 2f);
+
+            // 程序化创建平面 mesh（不依赖内置 Quad，兼容 Tuanjie 引擎）
+            MeshFilter mf = snowGround.AddComponent<MeshFilter>();
+            Mesh planeMesh = new Mesh();
+            planeMesh.vertices = new Vector3[]
+            {
+                new Vector3(-0.5f, 0f, -0.5f),
+                new Vector3(0.5f, 0f, -0.5f),
+                new Vector3(0.5f, 0f, 0.5f),
+                new Vector3(-0.5f, 0f, 0.5f)
+            };
+            planeMesh.triangles = new int[] { 0, 2, 1, 0, 3, 2 };
+            planeMesh.uv = new Vector2[]
+            {
+                new Vector2(0, 0),
+                new Vector2(1, 0),
+                new Vector2(1, 1),
+                new Vector2(0, 1)
+            };
+            planeMesh.normals = new Vector3[]
+            {
+                Vector3.up, Vector3.up, Vector3.up, Vector3.up
+            };
+            planeMesh.RecalculateBounds();
+            mf.mesh = planeMesh;
+
+            MeshRenderer mr = snowGround.AddComponent<MeshRenderer>();
+            Material snowGroundMat = GetOrCreateSnowGroundMaterial();
+            if (snowGroundMat != null)
+            {
+                mr.material = snowGroundMat;
+            }
         }
 
         /// <summary>
@@ -519,6 +692,16 @@ namespace AFrameWork.Sample
             {
                 var shape = m_groundSplashPs.shape;
                 shape.radius = radius;
+            }
+
+            // 同步更新雪地覆盖层缩放
+            if (m_blizzardVfxRoot != null)
+            {
+                Transform snowGround = m_blizzardVfxRoot.transform.Find("SnowGround");
+                if (snowGround != null)
+                {
+                    snowGround.localScale = new Vector3(radius * 2f, 1f, radius * 2f);
+                }
             }
         }
 
