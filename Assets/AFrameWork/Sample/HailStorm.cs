@@ -313,7 +313,7 @@ namespace AFrameWork.Sample
         private static Material s_snowGroundMaterial;
 
         // 地面飞溅发射速率（每秒粒子数）
-        private const float k_groundSplashEmissionRate = 500f;
+        private const float k_groundSplashEmissionRate = 1000f;
 
         /// <summary>
         /// 获取或创建 URP 粒子材质（白色，静态缓存）
@@ -568,7 +568,7 @@ namespace AFrameWork.Sample
             main.loop = true;
             main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.5f); // 短生命周期，弹跳弧线
             main.startSpeed = new ParticleSystem.MinMaxCurve(1f, 2.5f); // 向上弹跳速度（Hemisphere 默认沿 +Y 发射）
-            main.startSize = new ParticleSystem.MinMaxCurve(0.03f, 0.08f); // 比雪花略大，弹跳可见
+            main.startSize = new ParticleSystem.MinMaxCurve(0.01f, 0.04f); // 与下落雪花一致
             main.startColor = Color.white; // 纯白，与雪花一致
             main.gravityModifier = 0.5f;  // 低重力，弹跳弧线自然，下落不穿透太多
             main.maxParticles = 1500;
