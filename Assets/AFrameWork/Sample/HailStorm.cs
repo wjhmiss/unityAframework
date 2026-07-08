@@ -474,6 +474,7 @@ namespace AFrameWork.Sample
 
             ParticleSystem ps = swirlObj.AddComponent<ParticleSystem>();
             m_swirlSnowPs = ps;
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
             // 主模块配置
             var main = ps.main;
@@ -564,6 +565,7 @@ namespace AFrameWork.Sample
 
             ParticleSystem ps = splashObj.AddComponent<ParticleSystem>();
             m_groundSplashPs = ps;
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
             // 主模块配置
             var main = ps.main;
