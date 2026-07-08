@@ -270,6 +270,9 @@ namespace AFrameWork.Sample
         // 雪花生成高度倍数（相对于 DamageRadius，雪花从高空生成）
         private const float k_swirlSnowHeightMultiplier = 1.5f;
 
+        // 雪花发射半径倍数（相对于 DamageRadius，顶部下落区域略大于伤害范围）
+        private const float k_swirlSnowRadiusMultiplier = 1.3f;
+
         // 雪花旋转速度范围（绕 Y 轴，单位：unit/sec）
         // DamageRadius=6 时，周长=2π×6≈37.7，轨道速度20~30，下落约1.9秒内边缘粒子可旋转1.0~1.5圈
         private const float k_swirlSnowOrbitalSpeedMin = 20f;
@@ -494,7 +497,7 @@ namespace AFrameWork.Sample
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Circle;
-            shape.radius = radius;
+            shape.radius = radius * k_swirlSnowRadiusMultiplier;
             shape.radiusThickness = 1f;    // 实心圆（全圆面生成粒子），配合较大径向向内速度形成中心密集、边缘稀疏
             shape.rotation = new Vector3(-90f, 0f, 0f); // 圆面从 XY 平面旋转到 XZ 平面，粒子在整个水平圆形区域分布
             shape.position = new Vector3(0f, radius * k_swirlSnowHeightMultiplier, 0f); // 粒子在高空生成
@@ -676,7 +679,7 @@ namespace AFrameWork.Sample
             if (m_swirlSnowPs != null)
             {
                 var shape = m_swirlSnowPs.shape;
-                shape.radius = radius;
+                shape.radius = radius * k_swirlSnowRadiusMultiplier;
                 // 同步更新生成高度（保持高度与半径的比例）
                 shape.position = new Vector3(0f, radius * k_swirlSnowHeightMultiplier, 0f);
 
