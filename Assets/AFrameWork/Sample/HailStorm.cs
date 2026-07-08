@@ -275,9 +275,9 @@ namespace AFrameWork.Sample
         private const float k_swirlSnowOrbitalSpeedMin = 20f;
         private const float k_swirlSnowOrbitalSpeedMax = 30f;
 
-        // 雪花径向速度范围（向中心汇聚，负值=向内）—— 较小，保持螺旋半径避免快速塌缩到中心
-        private const float k_swirlSnowRadialSpeedMin = -0.2f;
-        private const float k_swirlSnowRadialSpeedMax = -0.05f;
+        // 雪花径向速度范围（向中心汇聚，负值=向内）—— 较大，下落过程中粒子快速向中心汇聚，形成中心密集边缘稀疏
+        private const float k_swirlSnowRadialSpeedMin = -1.5f;
+        private const float k_swirlSnowRadialSpeedMax = -0.5f;
 
         // 发射点绕 Y 轴旋转速度（度/秒）—— 旋转发射点产生可见螺旋流
         // 360°/s = 每秒一圈，下落约1.9秒内可完成约1.9圈螺旋
@@ -288,11 +288,11 @@ namespace AFrameWork.Sample
         private const float k_swirlSnowGravityMultiplier = 0.5f;
 
         // 雪花大小范围（有大有小，单位：米）
-        private const float k_swirlSnowSizeMin = 0.025f;
-        private const float k_swirlSnowSizeMax = 0.1f;
+        private const float k_swirlSnowSizeMin = 0.01f;
+        private const float k_swirlSnowSizeMax = 0.04f;
 
         // 雪花发射速率（每秒粒子数）
-        private const float k_swirlSnowEmissionRate = 600f;
+        private const float k_swirlSnowEmissionRate = 1200f;
 
         // URP 粒子材质（静态缓存，避免每次创建 HailStorm 都生成新材质）
         private static Material s_snowMaterial;
@@ -376,7 +376,7 @@ namespace AFrameWork.Sample
             main.startSize = new ParticleSystem.MinMaxCurve(k_swirlSnowSizeMin, k_swirlSnowSizeMax); // 有大有小
             main.startColor = Color.white; // 纯白小球
             main.gravityModifier = k_swirlSnowGravityMultiplier; // 较小重力，下落慢，螺旋轨迹清晰
-            main.maxParticles = 2400;
+            main.maxParticles = 5000;
             main.simulationSpace = ParticleSystemSimulationSpace.Local; // 局部空间模拟，旋转 transform 时所有粒子跟随旋转
 
             // 形状：圆形发射器，半径 = DamageRadius，圆面水平朝上（XZ 平面）
@@ -385,7 +385,7 @@ namespace AFrameWork.Sample
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Circle;
             shape.radius = radius;
-            shape.radiusThickness = 1f;    // 实心圆（粒子在整个圆面生成，不只是边缘）
+            shape.radiusThickness = 1f;    // 实心圆（全圆面生成粒子），配合较大径向向内速度形成中心密集、边缘稀疏
             shape.rotation = new Vector3(-90f, 0f, 0f); // 圆面从 XY 平面旋转到 XZ 平面，粒子在整个水平圆形区域分布
             shape.position = new Vector3(0f, radius * k_swirlSnowHeightMultiplier, 0f); // 粒子在高空生成
 
