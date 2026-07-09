@@ -51,6 +51,70 @@ namespace AFrameWork.Sample
 
         #endregion
 
+        #region Inspector 可调参数
+
+        [Header("空中雪花（SwirlSnow）")]
+        [Tooltip("发射点绕 Y 轴旋转速度（度/秒），所有粒子统一角速度")]
+        [SerializeField] private float m_swirlRotationSpeed = 90f;
+
+        [Tooltip("径向速度（向中心汇聚，负值=向内）")]
+        [SerializeField] private float m_swirlRadialSpeed = -0.5f;
+
+        [Tooltip("重力倍数，控制下落速度")]
+        [SerializeField] private float m_swirlGravityMultiplier = 0.5f;
+
+        [Tooltip("雪花最小尺寸（米）")]
+        [SerializeField] private float m_swirlSizeMin = 0.03f;
+
+        [Tooltip("雪花最大尺寸（米）")]
+        [SerializeField] private float m_swirlSizeMax = 0.08f;
+
+        [Tooltip("每秒发射粒子数")]
+        [SerializeField] private float m_swirlEmissionRate = 1500f;
+
+        [Tooltip("雪花颜色")]
+        [SerializeField] private Color m_swirlColor = Color.white;
+
+        [Header("地面飞溅（GroundSplash）")]
+        [Tooltip("弹起粒子最短存活时间（秒）")]
+        [SerializeField] private float m_splashLifetimeMin = 0.3f;
+
+        [Tooltip("弹起粒子最长存活时间（秒）")]
+        [SerializeField] private float m_splashLifetimeMax = 0.5f;
+
+        [Tooltip("弹起最小速度")]
+        [SerializeField] private float m_splashSpeedMin = 1f;
+
+        [Tooltip("弹起最大速度")]
+        [SerializeField] private float m_splashSpeedMax = 2.5f;
+
+        [Tooltip("弹起粒子最小尺寸（米）")]
+        [SerializeField] private float m_splashSizeMin = 0.03f;
+
+        [Tooltip("弹起粒子最大尺寸（米）")]
+        [SerializeField] private float m_splashSizeMax = 0.08f;
+
+        [Tooltip("弹起粒子重力倍数")]
+        [SerializeField] private float m_splashGravityMultiplier = 0.5f;
+
+        [Tooltip("每秒发射粒子数")]
+        [SerializeField] private float m_splashEmissionRate = 1000f;
+
+        [Tooltip("弹起粒子颜色")]
+        [SerializeField] private Color m_splashColor = Color.white;
+
+        [Header("地面覆盖层（SnowGround）")]
+        [Tooltip("地面覆盖层宽度倍数（相对于 DamageRadius）")]
+        [SerializeField] private float m_groundWidthMultiplier = 3f;
+
+        [Tooltip("地面覆盖层透明度")]
+        [SerializeField] private float m_groundAlpha = 0.85f;
+
+        [Tooltip("地面覆盖层颜色")]
+        [SerializeField] private Color m_groundColor = Color.white;
+
+        #endregion
+
         #region 初始化方法
 
         protected override void SetupComponents()
@@ -94,7 +158,7 @@ namespace AFrameWork.Sample
         {
             if (m_swirlSnowPs != null)
             {
-                m_swirlSnowPs.transform.Rotate(0f, k_swirlEmissionRotationSpeed * Time.deltaTime, 0f);
+                m_swirlSnowPs.transform.Rotate(0f, m_swirlRotationSpeed * Time.deltaTime, 0f);
             }
         }
 
@@ -273,27 +337,6 @@ namespace AFrameWork.Sample
         // 雪花发射半径倍数（相对于 DamageRadius，顶部下落区域略大于伤害范围）
         private const float k_swirlSnowRadiusMultiplier = 1.3f;
 
-        // 发射点绕 Y 轴旋转速度（度/秒）—— 旋转 transform 使所有粒子以相同角速度旋转（刚体旋转）
-        // 90°/s = 每4秒一圈，下落约1.9秒内粒子整体旋转约0.475圈（171°），速度统一且平缓
-        private const float k_swirlEmissionRotationSpeed = 90f;
-
-        // 雪花径向速度（向中心汇聚，负值=向内）—— 常量值，缓慢汇聚，粒子维持轨道半径使旋转稳定可见
-        private const float k_swirlSnowRadialSpeed = -0.5f;
-
-        // 雪花重力倍数（小，下落慢，确保旋转至少一圈后才落地）
-        // DamageRadius=6 时生成高度=9m，重力0.5 → 有效重力4.9m/s²，下落约1.9秒
-        private const float k_swirlSnowGravityMultiplier = 0.5f;
-
-        // 雪花大小范围（有大有小，单位：米）
-        private const float k_swirlSnowSizeMin = 0.01f;
-        private const float k_swirlSnowSizeMax = 0.04f;
-
-        // 雪花发射速率（每秒粒子数）
-        private const float k_swirlSnowEmissionRate = 1200f;
-
-        // 雪地覆盖层透明度
-        private const float k_snowGroundAlpha = 0.85f;
-
         // URP 粒子材质（静态缓存，避免每次创建 HailStorm 都生成新材质）
         private static Material s_snowMaterial;
 
@@ -302,15 +345,6 @@ namespace AFrameWork.Sample
 
         // 地面弹跳用的圆形 mesh（所有法线朝 +Y，用于 Mesh 粒子发射器）
         private static Mesh s_circleMesh;
-
-        // 雪地覆盖层纹理（静态缓存，径向渐变白色圆盘）
-        private static Texture2D s_snowGroundTexture;
-
-        // 雪地覆盖层材质（静态缓存）
-        private static Material s_snowGroundMaterial;
-
-        // 地面飞溅发射速率（每秒粒子数）
-        private const float k_groundSplashEmissionRate = 1000f;
 
         /// <summary>
         /// 获取或创建 URP 粒子材质（白色，静态缓存）
@@ -389,55 +423,56 @@ namespace AFrameWork.Sample
             }
             return s_circleMesh;
         }
-        private static Texture2D GetOrCreateSnowGroundTexture()
+        /// <summary>
+        /// 获取或创建雪地覆盖层纹理（径向渐变圆盘）
+        /// 使用实例字段 m_groundAlpha 和 m_groundColor 生成，每次实例化时重新创建以确保 Inspector 参数生效
+        /// </summary>
+        private Texture2D CreateSnowGroundTexture()
         {
-            if (s_snowGroundTexture == null)
+            int size = 256;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            float center = size * 0.5f;
+            float maxDist = center;
+            for (int y = 0; y < size; y++)
             {
-                int size = 256;
-                s_snowGroundTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-                s_snowGroundTexture.filterMode = FilterMode.Bilinear;
-                float center = size * 0.5f;
-                float maxDist = center;
-                for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
                 {
-                    for (int x = 0; x < size; x++)
-                    {
-                        float dist = Mathf.Sqrt((x - center) * (x - center) + (y - center) * (y - center));
-                        float t = Mathf.Clamp01(dist / maxDist);
-                        // 渐变：中心不透明，边缘透明；保留更大的不透明区域使圆盘更明显
-                        float alpha = 1f - t * t;
-                        s_snowGroundTexture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha * k_snowGroundAlpha));
-                    }
+                    float dist = Mathf.Sqrt((x - center) * (x - center) + (y - center) * (y - center));
+                    float t = Mathf.Clamp01(dist / maxDist);
+                    // 渐变：中心不透明，边缘透明；保留更大的不透明区域使圆盘更明显
+                    float a = 1f - t * t;
+                    tex.SetPixel(x, y, new Color(m_groundColor.r, m_groundColor.g, m_groundColor.b, a * m_groundAlpha));
                 }
-                s_snowGroundTexture.Apply();
             }
-            return s_snowGroundTexture;
+            tex.Apply();
+            return tex;
         }
 
         /// <summary>
-        /// 获取或创建雪地覆盖层材质（URP Particles/Unlit，支持透明渐变纹理）
+        /// 创建雪地覆盖层材质（URP Particles/Unlit，支持透明渐变纹理）
+        /// 使用实例 Inspector 参数生成，每次实例化时创建以确保颜色和透明度生效
         /// </summary>
-        private static Material GetOrCreateSnowGroundMaterial()
+        private Material CreateSnowGroundMaterial()
         {
-            if (s_snowGroundMaterial == null)
+            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader == null)
             {
-                Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-                if (shader != null)
-                {
-                    s_snowGroundMaterial = new Material(shader);
-                    // URP Particles/Unlit: _BaseColor 与 _BaseMap 相乘
-                    s_snowGroundMaterial.SetColor("_BaseColor", Color.white);
-                    Texture2D tex = GetOrCreateSnowGroundTexture();
-                    s_snowGroundMaterial.SetTexture("_BaseMap", tex);
-                    // 确保使用透明混合
-                    s_snowGroundMaterial.SetFloat("_Surface", 1f); // Transparent
-                    s_snowGroundMaterial.SetFloat("_Blend", 0f); // Alpha blending
-                    s_snowGroundMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                    s_snowGroundMaterial.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                    s_snowGroundMaterial.renderQueue = 3000; // Transparent queue
-                }
+                return null;
             }
-            return s_snowGroundMaterial;
+
+            var mat = new Material(shader);
+            // URP Particles/Unlit: _BaseColor 与 _BaseMap 相乘
+            mat.SetColor("_BaseColor", m_groundColor);
+            Texture2D tex = CreateSnowGroundTexture();
+            mat.SetTexture("_BaseMap", tex);
+            // 确保使用透明混合
+            mat.SetFloat("_Surface", 1f); // Transparent
+            mat.SetFloat("_Blend", 0f); // Alpha blending
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.renderQueue = 3000; // Transparent queue
+            return mat;
         }
 
         /// <summary>
@@ -477,14 +512,14 @@ namespace AFrameWork.Sample
             // 根据生成高度和重力计算下落到地面所需时间：t = √(2h / g)
             // 粒子到达地面即消失，不会穿透地面
             float fallHeight = radius * k_swirlSnowHeightMultiplier;
-            float effectiveGravity = k_swirlSnowGravityMultiplier * Physics.gravity.y; // 负值
+            float effectiveGravity = m_swirlGravityMultiplier * Physics.gravity.y; // 负值
             float fallTime = Mathf.Sqrt(2f * fallHeight / Mathf.Abs(effectiveGravity));
             main.startLifetime = fallTime;
             main.startSpeed = 0f;          // 靠重力下落，不靠 shape 速度
-            main.startSize = new ParticleSystem.MinMaxCurve(k_swirlSnowSizeMin, k_swirlSnowSizeMax); // 有大有小
-            main.startColor = Color.white; // 纯白小球
-            main.gravityModifier = k_swirlSnowGravityMultiplier; // 较小重力，下落慢，螺旋轨迹清晰
-            main.maxParticles = 5000;
+            main.startSize = new ParticleSystem.MinMaxCurve(m_swirlSizeMin, m_swirlSizeMax); // 有大有小
+            main.startColor = m_swirlColor; // 使用 Inspector 可调颜色
+            main.gravityModifier = m_swirlGravityMultiplier; // 较小重力，下落慢，螺旋轨迹清晰
+            main.maxParticles = 8000;     // 增大最大粒子数以支持更高发射率
             main.simulationSpace = ParticleSystemSimulationSpace.Local; // 局部空间模拟，粒子跟随 transform 旋转实现统一角速度
 
             // 形状：圆形发射器，半径 = DamageRadius，圆面水平朝上（XZ 平面）
@@ -499,7 +534,7 @@ namespace AFrameWork.Sample
 
             // 发射速率
             var emission = ps.emission;
-            emission.rateOverTime = k_swirlSnowEmissionRate;
+            emission.rateOverTime = m_swirlEmissionRate;
 
             // 龙卷风效果：transform 旋转统一角速度 + radial 向中心汇聚
             // 旋转由 RotateSwirlEmission() 旋转 transform 实现（Local 空间下所有粒子刚体旋转，角速度完全一致）
@@ -511,7 +546,7 @@ namespace AFrameWork.Sample
             velocityOverLifetime.orbitalY = new ParticleSystem.MinMaxCurve(0f);
             velocityOverLifetime.orbitalZ = new ParticleSystem.MinMaxCurve(0f);
             // 径向速度为负值，缓慢向中心汇聚（龙卷风吸力），保持轨道半径稳定使旋转清晰可见
-            velocityOverLifetime.radial = new ParticleSystem.MinMaxCurve(k_swirlSnowRadialSpeed);
+            velocityOverLifetime.radial = new ParticleSystem.MinMaxCurve(m_swirlRadialSpeed);
 
             // 透明度随生命周期降低
             var colorOverLifetime = ps.colorOverLifetime;
@@ -520,8 +555,8 @@ namespace AFrameWork.Sample
             gradient.SetKeys(
                 new GradientColorKey[]
                 {
-                    new GradientColorKey(Color.white, 0f),
-                    new GradientColorKey(Color.white, 1f)
+                    new GradientColorKey(m_swirlColor, 0f),
+                    new GradientColorKey(m_swirlColor, 1f)
                 },
                 new GradientAlphaKey[]
                 {
@@ -569,12 +604,12 @@ namespace AFrameWork.Sample
             var main = ps.main;
             main.duration = 5f;
             main.loop = true;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.5f); // 短生命周期，弹跳弧线
-            main.startSpeed = new ParticleSystem.MinMaxCurve(1f, 2.5f); // 向上弹跳速度（Hemisphere 默认沿 +Y 发射）
-            main.startSize = new ParticleSystem.MinMaxCurve(0.01f, 0.04f); // 与下落雪花一致
-            main.startColor = Color.white; // 纯白，与雪花一致
-            main.gravityModifier = 0.5f;  // 低重力，弹跳弧线自然，下落不穿透太多
-            main.maxParticles = 1500;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(m_splashLifetimeMin, m_splashLifetimeMax); // 短生命周期，弹跳弧线
+            main.startSpeed = new ParticleSystem.MinMaxCurve(m_splashSpeedMin, m_splashSpeedMax); // 向上弹跳速度
+            main.startSize = new ParticleSystem.MinMaxCurve(m_splashSizeMin, m_splashSizeMax); // 与下落雪花一致
+            main.startColor = m_splashColor; // 使用 Inspector 可调颜色
+            main.gravityModifier = m_splashGravityMultiplier;  // 低重力，弹跳弧线自然，下落不穿透太多
+            main.maxParticles = 3000;  // 增大最大粒子数以支持更高发射率
             // Local 空间：Hemisphere 的 startSpeed 沿 +Y 发射生效；BlizzardVFX 不旋转所以 local Y = world Y
             main.simulationSpace = ParticleSystemSimulationSpace.Local;
 
@@ -587,7 +622,7 @@ namespace AFrameWork.Sample
 
             // 发射速率
             var emission = ps.emission;
-            emission.rateOverTime = k_groundSplashEmissionRate;
+            emission.rateOverTime = m_splashEmissionRate;
 
             // 透明度随生命周期快速降低
             var colorOverLifetime = ps.colorOverLifetime;
@@ -596,8 +631,8 @@ namespace AFrameWork.Sample
             gradient.SetKeys(
                 new GradientColorKey[]
                 {
-                    new GradientColorKey(Color.white, 0f),
-                    new GradientColorKey(Color.white, 1f)
+                    new GradientColorKey(m_splashColor, 0f),
+                    new GradientColorKey(m_splashColor, 1f)
                 },
                 new GradientAlphaKey[]
                 {
@@ -635,8 +670,8 @@ namespace AFrameWork.Sample
             snowGround.transform.position = new Vector3(transform.position.x, 0.05f, transform.position.z);
             // mesh 顶点已在 XZ 平面（y=0），无需旋转
             snowGround.transform.localRotation = Quaternion.identity;
-            // 缩放到 2*radius 覆盖整个伤害范围
-            snowGround.transform.localScale = new Vector3(radius * 2f, 1f, radius * 2f);
+            // 缩放到覆盖整个伤害范围
+            snowGround.transform.localScale = new Vector3(radius * m_groundWidthMultiplier, 1f, radius * m_groundWidthMultiplier);
 
             // 程序化创建平面 mesh（不依赖内置 Quad，兼容 Tuanjie 引擎）
             MeshFilter mf = snowGround.AddComponent<MeshFilter>();
@@ -664,7 +699,7 @@ namespace AFrameWork.Sample
             mf.mesh = planeMesh;
 
             MeshRenderer mr = snowGround.AddComponent<MeshRenderer>();
-            Material snowGroundMat = GetOrCreateSnowGroundMaterial();
+            Material snowGroundMat = CreateSnowGroundMaterial();
             if (snowGroundMat != null)
             {
                 mr.material = snowGroundMat;
@@ -685,7 +720,7 @@ namespace AFrameWork.Sample
 
                 // 同步更新粒子生命周期（匹配新的下落时间）
                 float fallHeight = radius * k_swirlSnowHeightMultiplier;
-                float effectiveGravity = k_swirlSnowGravityMultiplier * Mathf.Abs(Physics.gravity.y);
+                float effectiveGravity = m_swirlGravityMultiplier * Mathf.Abs(Physics.gravity.y);
                 float fallTime = Mathf.Sqrt(2f * fallHeight / effectiveGravity);
                 var main = m_swirlSnowPs.main;
                 main.startLifetime = fallTime;
@@ -703,7 +738,7 @@ namespace AFrameWork.Sample
                 Transform snowGround = m_blizzardVfxRoot.transform.Find("SnowGround");
                 if (snowGround != null)
                 {
-                    snowGround.localScale = new Vector3(radius * 2f, 1f, radius * 2f);
+                    snowGround.localScale = new Vector3(radius * m_groundWidthMultiplier, 1f, radius * m_groundWidthMultiplier);
                 }
             }
         }

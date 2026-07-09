@@ -553,7 +553,7 @@ namespace AFrameWork.Core
                 CurrentHealth = 1f,                 // 当前生命值
 
                 // 攻击属性
-                MagicAttack = 25f,                  // 魔法攻击力（火球主要伤害来源）
+                MagicAttack = 0.25f,                  // 魔法攻击力（火球主要伤害来源）
                 MagicPenetration = 0.2f,            // 魔法穿透率（20%，无视部分魔防）
 
                 // 速度属性
@@ -562,7 +562,7 @@ namespace AFrameWork.Core
                 // 伤害配置
                 DamageRadius = 5f,                  // 伤害范围（5米，同时作为触发器半径）
                 IsContinuousDamage = true,          // 启用持续伤害（OnTriggerStay按间隔触发）
-                DamageDuration = 10f,               // 持续时间（10秒后自动销毁）
+                DamageDuration = 0f,               // 持续时间（10秒后自动销毁）
                 CanDealDamage = true,                // 启用伤害判定    
 
                 HitRate = 0.95f,                    // 命中率（95%）
@@ -640,8 +640,8 @@ namespace AFrameWork.Core
                 CurrentHealth = 1f,                 // 当前生命值
 
                 // 攻击属性
-                PhysicalAttack = 11f,               // 物理攻击力（冰雹主要伤害来源：物理打击）
-                MagicAttack = 1f,                   // 魔法攻击力（附加冰霜魔法伤害）
+                PhysicalAttack = 0.1f,               // 物理攻击力（冰雹主要伤害来源：物理打击）
+                MagicAttack = 0.11f,                   // 魔法攻击力（附加冰霜魔法伤害）
                 ArmorPenetration = 0.15f,           // 护甲穿透率（15%，冰雹冲击力部分无视护甲）
 
                 // 速度属性
