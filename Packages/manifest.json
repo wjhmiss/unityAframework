@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "cn.tuanjie.ai.generators": "file:../.codely-cli/extensions/unity-master-skill-library/Packages/cn.tuanjie.ai.generators",
     "cn.tuanjie.ai.graph": "1.0.9",
+    "cn.tuanjie.codely.bridge": "1.0.68",
     "com.bytedance.ide.trae": "https://github.com/Pico-Developer/TRAE-Editor-Unity.git",
     "com.unity.addressables": "1.22.3",
     "com.unity.ai.navigation": "1.1.7",
@@ -9,6 +9,7 @@
     "com.unity.cloud.gltfast": "6.8.0",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.feature.development": "1.0.1",
+    "com.unity.inputsystem": "1.14.4-t1",
     "com.unity.progrids": "3.0.3-preview.6",
     "com.unity.render-pipelines.universal": "14.2.0-t1",
     "com.unity.textmeshpro": "3.0.9",
@@ -46,7 +47,6 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0",
-    "cn.tuanjie.codely.bridge": "1.0.67"
+    "com.unity.modules.xr": "1.0.0"
   }
 }
