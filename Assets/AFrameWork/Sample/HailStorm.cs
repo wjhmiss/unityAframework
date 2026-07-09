@@ -87,8 +87,8 @@ namespace AFrameWork.Sample
         }
 
         /// <summary>
-        /// 旋转 SwirlSnow 的 transform 绕 Y 轴，使所有粒子在局部空间中跟随旋转，形成螺旋下落效果。
-        /// simulationSpace=Local，已发射的粒子也会随 transform 旋转，肉眼可见的螺旋轨迹。
+        /// 旋转 SwirlSnow 的 transform 绕 Y 轴，使所有粒子以相同角速度旋转（刚体旋转）。
+        /// simulationSpace=Local 时，已发射的粒子跟随 transform 旋转，所有粒子角速度完全一致。
         /// </summary>
         private void RotateSwirlEmission()
         {
@@ -273,18 +273,12 @@ namespace AFrameWork.Sample
         // 雪花发射半径倍数（相对于 DamageRadius，顶部下落区域略大于伤害范围）
         private const float k_swirlSnowRadiusMultiplier = 1.3f;
 
-        // 雪花旋转速度范围（绕 Y 轴，单位：unit/sec）
-        // DamageRadius=6 时，周长=2π×6≈37.7，轨道速度20~30，下落约1.9秒内边缘粒子可旋转1.0~1.5圈
-        private const float k_swirlSnowOrbitalSpeedMin = 20f;
-        private const float k_swirlSnowOrbitalSpeedMax = 30f;
+        // 发射点绕 Y 轴旋转速度（度/秒）—— 旋转 transform 使所有粒子以相同角速度旋转（刚体旋转）
+        // 90°/s = 每4秒一圈，下落约1.9秒内粒子整体旋转约0.475圈（171°），速度统一且平缓
+        private const float k_swirlEmissionRotationSpeed = 90f;
 
-        // 雪花径向速度范围（向中心汇聚，负值=向内）—— 较大，下落过程中粒子快速向中心汇聚，形成中心密集边缘稀疏
-        private const float k_swirlSnowRadialSpeedMin = -1.5f;
-        private const float k_swirlSnowRadialSpeedMax = -0.5f;
-
-        // 发射点绕 Y 轴旋转速度（度/秒）—— 旋转发射点产生可见螺旋流
-        // 360°/s = 每秒一圈，下落约1.9秒内可完成约1.9圈螺旋
-        private const float k_swirlEmissionRotationSpeed = 360f;
+        // 雪花径向速度（向中心汇聚，负值=向内）—— 常量值，缓慢汇聚，粒子维持轨道半径使旋转稳定可见
+        private const float k_swirlSnowRadialSpeed = -0.5f;
 
         // 雪花重力倍数（小，下落慢，确保旋转至少一圈后才落地）
         // DamageRadius=6 时生成高度=9m，重力0.5 → 有效重力4.9m/s²，下落约1.9秒
@@ -491,10 +485,10 @@ namespace AFrameWork.Sample
             main.startColor = Color.white; // 纯白小球
             main.gravityModifier = k_swirlSnowGravityMultiplier; // 较小重力，下落慢，螺旋轨迹清晰
             main.maxParticles = 5000;
-            main.simulationSpace = ParticleSystemSimulationSpace.Local; // 局部空间模拟，旋转 transform 时所有粒子跟随旋转
+            main.simulationSpace = ParticleSystemSimulationSpace.Local; // 局部空间模拟，粒子跟随 transform 旋转实现统一角速度
 
             // 形状：圆形发射器，半径 = DamageRadius，圆面水平朝上（XZ 平面）
-            // shape.position 偏移到高空生成粒子，但粒子系统仍在 HailStorm 中心（旋转中心不变）
+            // shape.position 偏移到高空生成粒子，但粒子系统仍在 HailStorm 中心（transform 旋转中心不变）
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Circle;
@@ -507,13 +501,17 @@ namespace AFrameWork.Sample
             var emission = ps.emission;
             emission.rateOverTime = k_swirlSnowEmissionRate;
 
-            // 龙卷风效果：径向向中心汇聚（旋转由 RotateSwirlEmission 旋转 transform 实现）
+            // 龙卷风效果：transform 旋转统一角速度 + radial 向中心汇聚
+            // 旋转由 RotateSwirlEmission() 旋转 transform 实现（Local 空间下所有粒子刚体旋转，角速度完全一致）
             var velocityOverLifetime = ps.velocityOverLifetime;
             velocityOverLifetime.enabled = true;
             velocityOverLifetime.space = ParticleSystemSimulationSpace.Local;
-            // 径向速度为负值，向中心汇聚（龙卷风吸力）
-            velocityOverLifetime.radial = new ParticleSystem.MinMaxCurve(
-                k_swirlSnowRadialSpeedMin, k_swirlSnowRadialSpeedMax);
+            // orbital 设为 0（旋转由 transform 处理），三个分量统一 Constant 模式避免 Unity 报错
+            velocityOverLifetime.orbitalX = new ParticleSystem.MinMaxCurve(0f);
+            velocityOverLifetime.orbitalY = new ParticleSystem.MinMaxCurve(0f);
+            velocityOverLifetime.orbitalZ = new ParticleSystem.MinMaxCurve(0f);
+            // 径向速度为负值，缓慢向中心汇聚（龙卷风吸力），保持轨道半径稳定使旋转清晰可见
+            velocityOverLifetime.radial = new ParticleSystem.MinMaxCurve(k_swirlSnowRadialSpeed);
 
             // 透明度随生命周期降低
             var colorOverLifetime = ps.colorOverLifetime;
