@@ -207,16 +207,16 @@ public class ThunderLightningEffect : MonoBehaviour
         matCrack = NewMat(sh, crackColor, crackIntensity);
         matCrackGlow = NewMat(sh, crackGlowColor, crackGlowIntensity);
 
-        matParticle = NewMat(sh, Color.white, glowIntensity);
+        matParticle = NewMat(sh, Color.white, glowIntensity, useCircleTex: true);
     }
 
-    private Material NewMat(Shader sh, Color c, float intensity)
+    private Material NewMat(Shader sh, Color c, float intensity, bool useCircleTex = false)
     {
         Material m = new Material(sh);
         m.hideFlags = HideFlags.HideAndDontSave;
         m.SetColor("_Color", c);
         m.SetFloat("_Intensity", intensity);
-        if (circleTex != null) m.SetTexture("_MainTex", circleTex);
+        if (useCircleTex && circleTex != null) m.SetTexture("_MainTex", circleTex);
         return m;
     }
 

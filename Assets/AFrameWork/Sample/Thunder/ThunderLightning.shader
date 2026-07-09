@@ -50,7 +50,7 @@ Shader "Thunder/Lightning"
             half4 frag(Varyings i) : SV_Target
             {
                 half4 t = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
-                half3 rgb = i.color.rgb * t.rgb * i.color.a * _Intensity;
+                half3 rgb = i.color.rgb * t.rgb * t.a * i.color.a * _Intensity;
                 return half4(rgb, 1.0h);
             }
             ENDHLSL
